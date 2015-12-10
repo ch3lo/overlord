@@ -66,12 +66,6 @@ func NewServiceContainer(id string) *ServiceContainer {
 // RegisterServiceVersion registra una nueva version de servicio en el contenedor
 // Si la version ya existia se retornara un error ServiceVersionAlreadyExist
 func (s *ServiceContainer) RegisterServiceVersion(params ServiceParameters) (*ServiceVersion, error) {
-	for key, _ := range s.Container {
-		if key == params.Version {
-			return nil, &ServiceVersionAlreadyExist{Service: s.Id, Version: params.Version}
-		}
-	}
-
 	sv := &ServiceVersion{
 		Version:                params.Version,
 		CreationDate:           time.Now(),
@@ -79,6 +73,12 @@ func (s *ServiceContainer) RegisterServiceVersion(params ServiceParameters) (*Se
 		ImageTag:               params.ImageTag,
 		instances:              make(map[string]*ServiceInstance),
 		MinInstancesPerCluster: params.MinInstancesPerCluster,
+	}
+
+	for key, _ := range s.Container {
+		if key == sv.Id() {
+			return nil, &ServiceVersionAlreadyExist{Service: s.Id, Version: params.Version}
+		}
 	}
 
 	s.Container[params.Version] = sv
