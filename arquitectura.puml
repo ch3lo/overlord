@@ -1,0 +1,69 @@
+@startuml
+package manager {
+    class Overlord
+    class Cluster
+}
+package service {
+    class ServiceContainer
+    class ServiceVersion
+    class ServiceInstance
+}
+
+package "updater" {
+    class ServiceUpdater {
+        Register(sub ServiceUpdaterSubscriber)
+        Remove(sub ServiceUpdaterSubscriber)
+        notify]()
+    }
+    interface ServiceUpdaterSubscriber {
+        Id()
+        Update(map[string]ServiceUpdaterData)
+    }
+}
+
+package collector {
+}
+
+package notification {
+}
+
+package api {
+  class ApiEngine
+}
+
+package scheduler {
+    interface Scheduler {
+        Id() strng
+        IsAlive() (bool, error)
+        GetInstances() ([]*ServiceInformation, error)
+    }
+
+    class ServiceInformation {
+        Id : string
+        Status : string
+    }
+
+    class Swarm
+    class Marathon
+}
+
+
+ApiEngine -> Overlord
+
+ServiceContainer -* Overlord
+ServiceContainer o- ServiceVersion
+
+Overlord *- Cluster
+Overlord -> ServiceUpdater
+
+Swarm --> ServiceInformation
+Marathon --> ServiceInformation
+Scheduler <|.. Swarm
+Scheduler <|.. Marathon
+
+Cluster -> Scheduler
+Cluster -o ServiceUpdater
+ServiceVersion o- ServiceInstance
+
+ServiceUpdater o-- ServiceUpdaterSubscriber
+@enduml

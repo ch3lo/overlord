@@ -1,19 +1,17 @@
 package updater
 
-import "github.com/ch3lo/overlord/scheduler"
-
-type ChangeCriteria interface {
-	MeetCriteria(status map[string]*scheduler.ServiceInformation) map[string]*scheduler.ServiceInformation
+type ServiceChangeCriteria interface {
+	MeetCriteria(status map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData
 }
 
 type ImageNameCriteria struct {
 	Name string
 }
 
-func (c *ImageNameCriteria) MeetCriteria(elements map[string]*scheduler.ServiceInformation) map[string]*scheduler.ServiceInformation {
-	var filtered map[string]*scheduler.ServiceInformation
+func (c *ImageNameCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData {
+	filtered := make(map[string]*ServiceUpdaterData)
 	for k, v := range elements {
-		if c.Name == v.Image {
+		if c.Name == v.origin.Image {
 			filtered[k] = elements[k]
 		}
 	}
@@ -24,10 +22,10 @@ type StatusCriteria struct {
 	Status string
 }
 
-func (c *StatusCriteria) MeetCriteria(elements map[string]*scheduler.ServiceInformation) map[string]*scheduler.ServiceInformation {
-	var filtered map[string]*scheduler.ServiceInformation
+func (c *StatusCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData {
+	filtered := make(map[string]*ServiceUpdaterData)
 	for k, v := range elements {
-		if c.Status == v.Status {
+		if c.Status == v.origin.Status {
 			filtered[k] = elements[k]
 		}
 	}
@@ -35,21 +33,21 @@ func (c *StatusCriteria) MeetCriteria(elements map[string]*scheduler.ServiceInfo
 }
 
 type AndCriteria struct {
-	criteria      ChangeCriteria
-	otherCriteria ChangeCriteria
+	criteria      ServiceChangeCriteria
+	otherCriteria ServiceChangeCriteria
 }
 
-func (c *AndCriteria) MeetCriteria(elements map[string]*scheduler.ServiceInformation) map[string]*scheduler.ServiceInformation {
+func (c *AndCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData {
 	filtered := c.criteria.MeetCriteria(elements)
 	return c.otherCriteria.MeetCriteria(filtered)
 }
 
 type OrCriteria struct {
-	criteria      ChangeCriteria
-	otherCriteria ChangeCriteria
+	criteria      ServiceChangeCriteria
+	otherCriteria ServiceChangeCriteria
 }
 
-func (c *OrCriteria) MeetCriteria(elements map[string]*scheduler.ServiceInformation) map[string]*scheduler.ServiceInformation {
+func (c *OrCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData {
 	filtered := c.criteria.MeetCriteria(elements)
 	others := c.otherCriteria.MeetCriteria(elements)
 

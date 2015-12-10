@@ -30,7 +30,7 @@ func NewApp(config *configuration.Configuration) {
 	}
 
 	app.setupClusters(config)
-	app.setupUpdater()
+	app.setupServiceUpdater()
 
 	overlordApp = app
 }
@@ -58,7 +58,8 @@ func (o *Overlord) setupClusters(config *configuration.Configuration) {
 	}
 }
 
-func (o *Overlord) setupUpdater() {
+// setupServiceUpdater inicia el componente que monitorea cambios de servicios
+func (o *Overlord) setupServiceUpdater() {
 	su := updater.NewServiceUpdater(o.clusters)
 	su.Monitor()
 	o.serviceUpdater = su

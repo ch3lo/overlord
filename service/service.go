@@ -41,7 +41,7 @@ func (s *ServiceVersion) Id() string {
 	return s.Version + ":" + s.ImageName + ":" + s.ImageTag
 }
 
-func (s *ServiceVersion) Update(data map[string]updater.ServiceUpdaterData) {
+func (s *ServiceVersion) Update(data map[string]*updater.ServiceUpdaterData) {
 	util.Log.Println("Servicio actualizado", s.Id())
 }
 

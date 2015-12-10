@@ -23,7 +23,7 @@ type ServiceUpdaterData struct {
 type ServiceUpdater struct {
 	subscriberMux      sync.Mutex
 	subscribers        map[string]ServiceUpdaterSubscriber
-	subscriberCriteria map[string]ChangeCriteria
+	subscriberCriteria map[string]ServiceChangeCriteria
 	clusters           map[string]*cluster.Cluster
 	services           map[string]*ServiceUpdaterData
 }
@@ -35,7 +35,7 @@ func NewServiceUpdater(clusters map[string]*cluster.Cluster) *ServiceUpdater {
 
 	s := &ServiceUpdater{
 		subscribers:        make(map[string]ServiceUpdaterSubscriber),
-		subscriberCriteria: make(map[string]ChangeCriteria),
+		subscriberCriteria: make(map[string]ServiceChangeCriteria),
 		services:           make(map[string]*ServiceUpdaterData),
 	}
 	s.clusters = clusters
@@ -43,7 +43,7 @@ func NewServiceUpdater(clusters map[string]*cluster.Cluster) *ServiceUpdater {
 	return s
 }
 
-func (su *ServiceUpdater) Register(sub ServiceUpdaterSubscriber, cc ChangeCriteria) {
+func (su *ServiceUpdater) Register(sub ServiceUpdaterSubscriber, cc ServiceChangeCriteria) {
 	su.subscriberMux.Lock()
 	defer su.subscriberMux.Unlock()
 
@@ -72,14 +72,16 @@ func (su *ServiceUpdater) Remove(sub ServiceUpdaterSubscriber) {
 	}
 }
 
-func (su *ServiceUpdater) notify(updatedServices map[string]ServiceUpdaterData) {
+func (su *ServiceUpdater) notify(updatedServices map[string]*ServiceUpdaterData) {
 	su.subscriberMux.Lock()
 	defer su.subscriberMux.Unlock()
 
-	util.Log.Debugln("Notificando cambios")
+	util.Log.Debugln("Filtrando resultados y notificando cambios")
 	for k, _ := range su.subscribers {
-		//su.subscriberCriteria[k].MeetCriteria()
-		su.subscribers[k].Update(updatedServices)
+		filtered := su.subscriberCriteria[k].MeetCriteria(updatedServices)
+		if filtered != nil && len(filtered) > 0 {
+			su.subscribers[k].Update(filtered)
+		}
 	}
 }
 
@@ -91,27 +93,32 @@ func (su *ServiceUpdater) Monitor() {
 // detachedMonitor loop que permite monitorear los servicios de los schedulers
 func (su *ServiceUpdater) detachedMonitor() {
 	for {
-		updatedServices := make(map[string]ServiceUpdaterData)
+		updatedServices := make(map[string]*ServiceUpdaterData)
 
 		for clusterKey, c := range su.clusters {
 			srvs, err := c.GetScheduler().GetInstances(scheduler.FilterInstances{})
 			if err != nil {
-				util.Log.Errorln("No se pudieron obtener instancias del cluster %s con scheduler %. Motivo: %s", clusterKey, c.GetScheduler().Id(), err.Error())
+				util.Log.Errorf("No se pudieron obtener instancias del cluster %s con scheduler %s. Motivo: %s", clusterKey, c.GetScheduler().Id(), err.Error())
 				continue
 			}
-			updatedServices = su.checkServices(srvs)
+			checkedServices := su.checkServices(srvs)
+			for k := range checkedServices {
+				updatedServices[k] = checkedServices[k]
+			}
 		}
+
+		util.Log.Debugf("%v", updatedServices)
 
 		if updatedServices != nil && len(updatedServices) > 0 {
 			su.notify(updatedServices)
 		}
 
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 30)
 	}
 }
 
-func (su *ServiceUpdater) checkServices(services []scheduler.ServiceInformation) map[string]ServiceUpdaterData {
-	updatedServices := make(map[string]ServiceUpdaterData)
+func (su *ServiceUpdater) checkServices(services []scheduler.ServiceInformation) map[string]*ServiceUpdaterData {
+	updatedServices := make(map[string]*ServiceUpdaterData)
 
 	// Se asume por defecto que un servicio fue removido
 	// Luego se actualiza al estado correcto
@@ -122,33 +129,32 @@ func (su *ServiceUpdater) checkServices(services []scheduler.ServiceInformation)
 
 	for k, v := range services {
 		util.Log.Debugf("Comparando servicio %+v <-> %+v", su.services[v.Id], services[k])
-		if su.services[v.Id] != nil {
-			if reflect.DeepEqual(su.services[v.Id].origin, services[k]) {
-				su.services[v.Id].lastUpdate = time.Now()
-				su.services[v.Id].lastAction = service_updated
 
-				util.Log.Debugln("Servicio sin cambios")
-				continue
+		if su.services[v.Id] == nil {
+			newService := &ServiceUpdaterData{
+				lastAction: service_added,
+				lastUpdate: time.Now(),
+				origin:     services[k],
 			}
 
-			su.services[v.Id].lastUpdate = time.Now()
-			su.services[v.Id].lastAction = service_updated
-			updatedServices[v.Id] = *su.services[v.Id]
+			su.services[v.Id] = newService
+			updatedServices[v.Id] = newService
 
-			util.Log.Debugln("Servicio tuvo un cambio")
+			util.Log.Debugln("Monitoreando nuevo servicio")
 			continue
 		}
 
-		newService := &ServiceUpdaterData{
-			lastAction: service_added,
-			lastUpdate: time.Now(),
-			origin:     services[k],
+		su.services[v.Id].lastUpdate = time.Now()
+		su.services[v.Id].lastAction = service_updated
+		if reflect.DeepEqual(su.services[v.Id].origin, services[k]) {
+			util.Log.Debugln("Servicio sin cambios")
+			continue
 		}
 
-		su.services[v.Id] = newService
-		updatedServices[v.Id] = *newService
+		su.services[v.Id].origin = services[k]
+		updatedServices[v.Id] = su.services[v.Id]
 
-		util.Log.Debugln("Monitoreando nuevo servicio")
+		util.Log.Debugln("Servicio tuvo un cambio")
 	}
 
 	return updatedServices
