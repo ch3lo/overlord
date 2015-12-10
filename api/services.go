@@ -5,7 +5,7 @@ import (
 
 	"github.com/ch3lo/overlord/api/types"
 	"github.com/ch3lo/overlord/manager"
-	"github.com/ch3lo/overlord/service"
+	"github.com/ch3lo/overlord/manager/service"
 	"github.com/ch3lo/overlord/util"
 	"github.com/gin-gonic/gin"
 )

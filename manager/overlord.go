@@ -5,8 +5,8 @@ import (
 
 	"github.com/ch3lo/overlord/configuration"
 	"github.com/ch3lo/overlord/manager/cluster"
+	"github.com/ch3lo/overlord/manager/service"
 	"github.com/ch3lo/overlord/monitor"
-	"github.com/ch3lo/overlord/service"
 	"github.com/ch3lo/overlord/util"
 	//Necesarios para que funcione el init()
 	_ "github.com/ch3lo/overlord/scheduler/marathon"
