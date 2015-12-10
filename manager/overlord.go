@@ -5,8 +5,8 @@ import (
 
 	"github.com/ch3lo/overlord/configuration"
 	"github.com/ch3lo/overlord/manager/cluster"
+	"github.com/ch3lo/overlord/monitor"
 	"github.com/ch3lo/overlord/service"
-	"github.com/ch3lo/overlord/updater"
 	"github.com/ch3lo/overlord/util"
 	//Necesarios para que funcione el init()
 	_ "github.com/ch3lo/overlord/scheduler/marathon"
@@ -19,7 +19,7 @@ type Overlord struct {
 	config           *configuration.Configuration
 	serviceMux       sync.Mutex
 	clusters         map[string]*cluster.Cluster
-	serviceUpdater   *updater.ServiceUpdater
+	serviceUpdater   *monitor.ServiceUpdater
 	serviceContainer map[string]*service.ServiceContainer
 }
 
@@ -60,7 +60,7 @@ func (o *Overlord) setupClusters(config *configuration.Configuration) {
 
 // setupServiceUpdater inicia el componente que monitorea cambios de servicios
 func (o *Overlord) setupServiceUpdater() {
-	su := updater.NewServiceUpdater(o.clusters)
+	su := monitor.NewServiceUpdater(o.clusters)
 	su.Monitor()
 	o.serviceUpdater = su
 }
@@ -88,7 +88,7 @@ func (o *Overlord) RegisterService(params service.ServiceParameters) (*service.S
 		return nil, err
 	}
 
-	criteria := &updater.ImageNameCriteria{sv.ImageName + ":" + sv.ImageTag}
+	criteria := &monitor.ImageNameCriteria{sv.ImageName + ":" + sv.ImageTag}
 
 	o.serviceUpdater.Register(sv, criteria)
 	return sv, nil

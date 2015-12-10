@@ -1,4 +1,4 @@
-package updater
+package monitor
 
 type ServiceChangeCriteria interface {
 	MeetCriteria(status map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData

@@ -1,4 +1,4 @@
-package updater
+package monitor
 
 type ServiceUpdaterSubscriber interface {
 	Id() string
