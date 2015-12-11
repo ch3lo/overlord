@@ -1,5 +1,7 @@
 package monitor
 
+import "github.com/ch3lo/overlord/scheduler"
+
 type ServiceChangeCriteria interface {
 	MeetCriteria(status map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData
 }
@@ -19,7 +21,7 @@ func (c *ImageNameCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData
 }
 
 type StatusCriteria struct {
-	Status string
+	Status scheduler.ServiceInformationStatus
 }
 
 func (c *StatusCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData {

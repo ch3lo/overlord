@@ -69,6 +69,22 @@ func (ce *UnknownError) Error() string {
 	return fmt.Sprintf("%v: %v", ce.GetStatus(), ce.GetMessage())
 }
 
+type ImageNameRegexpError struct {
+	Message string
+}
+
+func (e *ImageNameRegexpError) GetStatus() int {
+	return 400
+}
+
+func (e *ImageNameRegexpError) GetMessage() string {
+	return e.Message
+}
+
+func (ce *ImageNameRegexpError) Error() string {
+	return fmt.Sprintf("%v: %v", ce.GetStatus(), ce.GetMessage())
+}
+
 // NO USADO AUN
 type ServiceVersionNotFound struct {
 }

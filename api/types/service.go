@@ -6,6 +6,8 @@ import (
 
 type Instance struct {
 	Id      string `json:"id"`
+	Status  string `json:"status,omitempty"`
+	Cluster string `json:"cluster,omitempty"`
 	Address string `json:"address"`
 }
 
@@ -14,7 +16,6 @@ type ServiceVersion struct {
 	CreationDate *time.Time `json:"creation_time,omitempty"`
 	ImageName    string     `json:"image_name,omitempty"`
 	ImageTag     string     `json:"image_tag,omitempty"`
-	Status       string     `json:"status,omitempty"`
 	Instances    []Instance `json:"instances,omitempty"`
 }
 

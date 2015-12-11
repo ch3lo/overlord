@@ -5,6 +5,7 @@ package swarm
 import (
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/ch3lo/overlord/scheduler"
 	"github.com/ch3lo/overlord/scheduler/factory"
@@ -128,11 +129,19 @@ func (ss *SwarmScheduler) GetInstances(filter scheduler.FilterInstances) ([]sche
 		return nil, err
 	}
 
+	upRegexp := regexp.MustCompile("^[u|U]p")
+
 	var instances []scheduler.ServiceInformation
 	for _, v := range containers {
+		status := scheduler.DOWN
+		util.Log.Debugln("STATUS", v.Status)
+		if upRegexp.MatchString(v.Status) {
+			status = scheduler.UP
+		}
+
 		instances = append(instances, scheduler.ServiceInformation{
 			Id:     v.ID,
-			Status: v.Status,
+			Status: status,
 			Image:  v.Image,
 		})
 	}

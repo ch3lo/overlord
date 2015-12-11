@@ -60,9 +60,14 @@ func PutService(c *gin.Context) {
 			util.Log.Println(err)
 
 			var newErr CustomStatusAndMessageError
-			if _, ok := err.(*service.ServiceVersionAlreadyExist); ok {
+			switch err.(type) {
+			case *service.ServiceVersionAlreadyExist:
 				newErr = &ElementAlreadyExists{}
-			} else {
+				break
+			case *service.ImageNameRegexpError:
+				newErr = &ImageNameRegexpError{err.Error()}
+				break
+			default:
 				newErr = &UnknownError{}
 			}
 

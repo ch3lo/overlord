@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/ch3lo/overlord/manager/cluster"
 	"github.com/ch3lo/overlord/scheduler"
 	"github.com/ch3lo/overlord/util"
@@ -15,12 +16,44 @@ const service_added string = "added"
 const service_removed string = "removed"
 
 type ServiceUpdaterData struct {
-	lastUpdate time.Time
-	lastAction string
-	origin     scheduler.ServiceInformation
+	registerDate time.Time
+	lastUpdate   time.Time
+	lastAction   string
+	clusterId    string
+	origin       scheduler.ServiceInformation
+}
+
+func NewServiceUpdaterData() *ServiceUpdaterData {
+	data := &ServiceUpdaterData{
+		registerDate: time.Now(),
+		lastAction:   service_added,
+		lastUpdate:   time.Now(),
+	}
+	return data
+}
+
+func (data *ServiceUpdaterData) GetRegisterDate() time.Time {
+	return data.registerDate
+}
+
+func (data *ServiceUpdaterData) GetLastUpdate() time.Time {
+	return data.lastUpdate
+}
+
+func (data *ServiceUpdaterData) GetLastAction() string {
+	return data.lastAction
+}
+
+func (data *ServiceUpdaterData) GetClusterId() string {
+	return data.clusterId
+}
+
+func (data *ServiceUpdaterData) GetOrigin() scheduler.ServiceInformation {
+	return data.origin
 }
 
 type ServiceUpdater struct {
+	updateServicesMux  sync.Mutex
 	subscriberMux      sync.Mutex
 	subscribers        map[string]ServiceUpdaterSubscriber
 	subscriberCriteria map[string]ServiceChangeCriteria
@@ -95,66 +128,74 @@ func (su *ServiceUpdater) detachedMonitor() {
 	for {
 		updatedServices := make(map[string]*ServiceUpdaterData)
 
+		su.updateServicesMux.Lock()
+
 		for clusterKey, c := range su.clusters {
+			util.Log.WithField("cluster", clusterKey).Infof("Monitoreando cluster")
 			srvs, err := c.GetScheduler().GetInstances(scheduler.FilterInstances{})
 			if err != nil {
-				util.Log.Errorf("No se pudieron obtener instancias del cluster %s con scheduler %s. Motivo: %s", clusterKey, c.GetScheduler().Id(), err.Error())
+				util.Log.WithFields(log.Fields{
+					"cluster":   clusterKey,
+					"scheduler": c.GetScheduler().Id(),
+				}).Errorf("No se pudieron obtener instancias del cluster. Motivo: %s", err.Error())
 				continue
 			}
-			checkedServices := su.checkServices(srvs)
+			checkedServices := su.checkClusterServices(clusterKey, srvs)
 			for k := range checkedServices {
 				updatedServices[k] = checkedServices[k]
 			}
+			util.Log.WithField("cluster", clusterKey).Infof("Se actualizaron %d servicios", len(checkedServices))
 		}
 
-		util.Log.Debugf("%v", updatedServices)
+		su.updateServicesMux.Unlock()
+
+		util.Log.Infof("Se actualizaron %d servicios", len(updatedServices))
 
 		if updatedServices != nil && len(updatedServices) > 0 {
 			su.notify(updatedServices)
 		}
 
-		time.Sleep(time.Second * 30)
+		time.Sleep(time.Second * 10)
 	}
 }
 
-func (su *ServiceUpdater) checkServices(services []scheduler.ServiceInformation) map[string]*ServiceUpdaterData {
+func (su *ServiceUpdater) checkClusterServices(clusterId string, clusterServices []scheduler.ServiceInformation) map[string]*ServiceUpdaterData {
 	updatedServices := make(map[string]*ServiceUpdaterData)
 
 	// Se asume por defecto que un servicio fue removido
 	// Luego se actualiza al estado correcto
 	for k := range su.services {
-		su.services[k].lastAction = service_removed
-		su.services[k].lastUpdate = time.Now()
+		if su.services[k].clusterId == clusterId {
+			su.services[k].lastAction = service_removed
+			su.services[k].lastUpdate = time.Now()
+			updatedServices[k] = su.services[k]
+		}
 	}
 
-	for k, v := range services {
-		util.Log.Debugf("Comparando servicio %+v <-> %+v", su.services[v.Id], services[k])
-
+	for k, v := range clusterServices {
 		if su.services[v.Id] == nil {
-			newService := &ServiceUpdaterData{
-				lastAction: service_added,
-				lastUpdate: time.Now(),
-				origin:     services[k],
-			}
+			newService := NewServiceUpdaterData()
+			newService.clusterId = clusterId
+			newService.origin = clusterServices[k]
 
 			su.services[v.Id] = newService
 			updatedServices[v.Id] = newService
 
-			util.Log.Debugln("Monitoreando nuevo servicio")
+			util.Log.WithField("cluster", clusterId).Debugf("Monitoreando nuevo servicio %+v", newService)
 			continue
 		}
 
 		su.services[v.Id].lastUpdate = time.Now()
 		su.services[v.Id].lastAction = service_updated
-		if reflect.DeepEqual(su.services[v.Id].origin, services[k]) {
-			util.Log.Debugln("Servicio sin cambios")
+
+		if reflect.DeepEqual(su.services[v.Id].origin, clusterServices[k]) {
+			delete(updatedServices, v.Id)
+			util.Log.WithField("cluster", clusterId).Debugf("Servicio sin cambios %+v", clusterServices[k])
 			continue
 		}
 
-		su.services[v.Id].origin = services[k]
-		updatedServices[v.Id] = su.services[v.Id]
-
-		util.Log.Debugln("Servicio tuvo un cambio")
+		su.services[v.Id].origin = clusterServices[k]
+		util.Log.WithField("cluster", clusterId).Debugf("Servicio tuvo un cambio %+v <-> %+v", su.services[v.Id].GetOrigin(), clusterServices[k])
 	}
 
 	return updatedServices
