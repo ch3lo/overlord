@@ -11,14 +11,14 @@ func (err ServiceAlreadyExist) Error() string {
 	return fmt.Sprintf("El servicio ya existe: %s", err.Name)
 }
 
-// ServiceVersionAlreadyExist sucede cuando se esta agregando una version de servicio que ya existe
-type ServiceVersionAlreadyExist struct {
+// ServiceManagerAlreadyExist sucede cuando se esta agregando un manager de servicio que ya existe
+type ServiceManagerAlreadyExist struct {
 	Service string
 	Version string
 }
 
-func (err ServiceVersionAlreadyExist) Error() string {
-	return fmt.Sprintf("La version %s del servicio %s ya existe", err.Version, err.Service)
+func (err ServiceManagerAlreadyExist) Error() string {
+	return fmt.Sprintf("El manager %s del servicio %s ya existe", err.Version, err.Service)
 }
 
 // ImageNameRegexpError se lanza cuando no se puede compilar el nombre de la imagen como expresion regular

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/ch3lo/overlord/manager/cluster"
+	"github.com/ch3lo/overlord/cluster"
 	"github.com/ch3lo/overlord/scheduler"
 	"github.com/ch3lo/overlord/util"
 )
@@ -88,7 +88,13 @@ func (su *ServiceUpdater) Register(sub ServiceUpdaterSubscriber, cc ServiceChang
 
 	su.subscriberCriteria[sub.Id()] = cc
 	su.subscribers[sub.Id()] = sub
+
 	util.Log.Infof("Se agregó el subscriptor: %s", sub.Id())
+
+	filtered := cc.MeetCriteria(su.services)
+	if filtered != nil && len(filtered) > 0 {
+		sub.Update(filtered)
+	}
 }
 
 func (su *ServiceUpdater) Remove(sub ServiceUpdaterSubscriber) {

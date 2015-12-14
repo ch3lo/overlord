@@ -1,19 +1,24 @@
 package monitor
 
-import "github.com/ch3lo/overlord/scheduler"
+import (
+	"regexp"
+
+	"github.com/ch3lo/overlord/scheduler"
+)
 
 type ServiceChangeCriteria interface {
 	MeetCriteria(status map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData
 }
 
-type ImageNameCriteria struct {
-	Name string
+type ImageNameAndImageTagRegexpCriteria struct {
+	FullImageNameRegexp *regexp.Regexp
 }
 
-func (c *ImageNameCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData {
+func (c *ImageNameAndImageTagRegexpCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData {
 	filtered := make(map[string]*ServiceUpdaterData)
 	for k, v := range elements {
-		if c.Name == v.origin.Image {
+		fullName := v.origin.ImageName + ":" + v.origin.ImageTag
+		if c.FullImageNameRegexp.MatchString(fullName) {
 			filtered[k] = elements[k]
 		}
 	}

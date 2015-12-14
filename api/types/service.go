@@ -5,10 +5,11 @@ import (
 )
 
 type Instance struct {
-	Id      string `json:"id"`
-	Status  string `json:"status,omitempty"`
-	Cluster string `json:"cluster,omitempty"`
-	Address string `json:"address"`
+	Id           string     `json:"id"`
+	CreationDate *time.Time `json:"creation_time,omitempty"`
+	Status       string     `json:"status,omitempty"`
+	Cluster      string     `json:"cluster,omitempty"`
+	Address      string     `json:"address"`
 }
 
 type ServiceVersion struct {

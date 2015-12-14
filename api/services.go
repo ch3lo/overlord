@@ -17,11 +17,20 @@ func GetServices(c *gin.Context) {
 	for _, srv := range servicesList {
 		var apiVersions []types.ServiceVersion
 		for _, v := range srv.Container {
+			var instances []types.Instance
+			for _, instance := range v.GetInstances() {
+				instances = append(instances, types.Instance{
+					Id:           instance.Id,
+					CreationDate: &instance.CreationDate,
+				})
+			}
+
 			apiVersions = append(apiVersions, types.ServiceVersion{
 				Version:      v.Version,
 				CreationDate: &srv.CreationDate,
 				ImageName:    v.ImageName,
 				ImageTag:     v.ImageTag,
+				Instances:    instances,
 			})
 		}
 		apiServices = append(apiServices, types.Service{
@@ -61,7 +70,7 @@ func PutService(c *gin.Context) {
 
 			var newErr CustomStatusAndMessageError
 			switch err.(type) {
-			case *service.ServiceVersionAlreadyExist:
+			case *service.ServiceManagerAlreadyExist:
 				newErr = &ElementAlreadyExists{}
 				break
 			case *service.ImageNameRegexpError:

@@ -130,19 +130,29 @@ func (ss *SwarmScheduler) GetInstances(filter scheduler.FilterInstances) ([]sche
 	}
 
 	upRegexp := regexp.MustCompile("^[u|U]p")
+	imageAndTagRegexp := regexp.MustCompile("^([\\w./_-]+)(?::([\\w._-]+))?$")
 
 	var instances []scheduler.ServiceInformation
 	for _, v := range containers {
-		status := scheduler.DOWN
-		util.Log.Debugln("STATUS", v.Status)
+		util.Log.WithField("scheduler", schedulerId).Debugf("Procesing container %+v", v)
+
+		result := imageAndTagRegexp.FindStringSubmatch(v.Image)
+		imageName := result[1]
+		imageTag := "latest"
+		if result[1] != "" {
+			imageTag = result[2]
+		}
+
+		status := scheduler.SERVICE_DOWN
 		if upRegexp.MatchString(v.Status) {
-			status = scheduler.UP
+			status = scheduler.SERVICE_UP
 		}
 
 		instances = append(instances, scheduler.ServiceInformation{
-			Id:     v.ID,
-			Status: status,
-			Image:  v.Image,
+			Id:        v.ID,
+			Status:    status,
+			ImageName: imageName,
+			ImageTag:  imageTag,
 		})
 	}
 

@@ -17,7 +17,8 @@ func (s ServiceInformationStatus) String() string {
 }
 
 type ServiceInformation struct {
-	Id     string
-	Image  string
-	Status ServiceInformationStatus
+	Id        string
+	ImageName string
+	ImageTag  string
+	Status    ServiceInformationStatus
 }

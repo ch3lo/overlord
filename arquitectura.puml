@@ -1,26 +1,33 @@
 @startuml
 package manager {
     class Overlord
-    package cluster {
-        class Cluster
-    }
+
     package service {
-        class ServiceContainer
-        class ServiceVersion
+        class ServiceGroup
+        class ServiceManager
         class ServiceInstance
     }
 }
 
-package "updater" {
+package cluster {
+    class Cluster {
+        name : string
+        scheduler : scheduler.Scheduler
+    }
+}
+
+package monitor {
     class ServiceUpdater {
         Register(ServiceUpdaterSubscriber)
         Remove(ServiceUpdaterSubscriber)
-        notify]()
+        notify()
     }
     interface ServiceUpdaterSubscriber {
         Id()
         Update(map[string]ServiceUpdaterData)
     }
+    class ServiceUpdaterData
+    interface ServiceChangeCriteria
 }
 
 package collector {
@@ -54,11 +61,13 @@ package scheduler {
 
 ApiEngine -> Overlord
 
-ServiceContainer -* Overlord
-ServiceContainer o- ServiceVersion
+ServiceGroup -* Overlord
+ServiceGroup *- ServiceManager
+ServiceManager *- ServiceInstance
 
-Overlord *- Cluster
-Overlord -> ServiceUpdater
+ServiceManager ..|> ServiceUpdaterSubscriber
+
+Overlord *- ServiceUpdater
 
 Swarm --> ServiceInformation
 Marathon --> ServiceInformation
@@ -68,8 +77,9 @@ Scheduler <|.. Swarm
 Scheduler <|.. Marathon
 
 Cluster -> Scheduler
-Cluster -o ServiceUpdater
-ServiceVersion o- ServiceInstance
+ServiceUpdater o-- Cluster
 
-ServiceUpdater o-- ServiceUpdaterSubscriber
+ServiceUpdater o- ServiceUpdaterSubscriber
+ServiceUpdater *-- ServiceUpdaterData
+ServiceUpdater o-- ServiceChangeCriteria
 @enduml

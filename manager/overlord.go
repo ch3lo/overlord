@@ -3,8 +3,8 @@ package manager
 import (
 	"sync"
 
+	"github.com/ch3lo/overlord/cluster"
 	"github.com/ch3lo/overlord/configuration"
-	"github.com/ch3lo/overlord/manager/cluster"
 	"github.com/ch3lo/overlord/manager/service"
 	"github.com/ch3lo/overlord/monitor"
 	"github.com/ch3lo/overlord/util"
@@ -16,21 +16,20 @@ import (
 var overlordApp *Overlord
 
 type Overlord struct {
-	config           *configuration.Configuration
-	serviceMux       sync.Mutex
-	clusters         map[string]*cluster.Cluster
-	serviceUpdater   *monitor.ServiceUpdater
-	serviceContainer map[string]*service.ServiceContainer
+	config             *configuration.Configuration
+	serviceMux         sync.Mutex
+	serviceUpdater     *monitor.ServiceUpdater
+	serviceGroupMapper map[string]*service.ServiceGroup
 }
 
 func NewApp(config *configuration.Configuration) {
 	app := &Overlord{
-		config:           config,
-		serviceContainer: make(map[string]*service.ServiceContainer),
+		config:             config,
+		serviceGroupMapper: make(map[string]*service.ServiceGroup),
 	}
 
-	app.setupClusters(config)
-	app.setupServiceUpdater()
+	clusters := setupClusters(config)
+	app.setupServiceUpdater(clusters)
 
 	overlordApp = app
 }
@@ -40,8 +39,8 @@ func GetAppInstance() *Overlord {
 }
 
 // setupClusters inicia el cluster, mapeando el cluster el id del cluster como key
-func (o *Overlord) setupClusters(config *configuration.Configuration) {
-	o.clusters = make(map[string]*cluster.Cluster)
+func setupClusters(config *configuration.Configuration) map[string]*cluster.Cluster {
+	clusters := make(map[string]*cluster.Cluster)
 
 	for key, _ := range config.Clusters {
 		c, err := cluster.NewCluster(key, config.Clusters[key])
@@ -50,17 +49,19 @@ func (o *Overlord) setupClusters(config *configuration.Configuration) {
 			continue
 		}
 
-		o.clusters[key] = c
+		clusters[key] = c
 	}
 
-	if len(o.clusters) == 0 {
+	if len(clusters) == 0 {
 		util.Log.Fatalln("Al menos debe existir un cluster")
 	}
+
+	return clusters
 }
 
 // setupServiceUpdater inicia el componente que monitorea cambios de servicios
-func (o *Overlord) setupServiceUpdater() {
-	su := monitor.NewServiceUpdater(o.clusters)
+func (o *Overlord) setupServiceUpdater(clusters map[string]*cluster.Cluster) {
+	su := monitor.NewServiceUpdater(clusters)
 	su.Monitor()
 	o.serviceUpdater = su
 }
@@ -69,31 +70,32 @@ func (o *Overlord) setupServiceUpdater() {
 // Si el contenedor ya existia se omite su creación y se procede a registrar
 // las versiones de los servicios.
 // Si no se puede registrar una nueva version se retornara un error.
-func (o *Overlord) RegisterService(params service.ServiceParameters) (*service.ServiceVersion, error) {
+func (o *Overlord) RegisterService(params service.ServiceParameters) (*service.ServiceManager, error) {
 	o.serviceMux.Lock()
 	defer o.serviceMux.Unlock()
 
-	container := service.NewServiceContainer(params.Id)
+	container := service.NewServiceGroup(params.Id)
 
-	for key, _ := range o.serviceContainer {
+	for key, _ := range o.serviceGroupMapper {
 		if key == params.Id {
-			container = o.serviceContainer[key]
+			container = o.serviceGroupMapper[key]
+			break
 		}
 	}
 
-	o.serviceContainer[params.Id] = container
+	o.serviceGroupMapper[params.Id] = container
 
-	sv, err := container.RegisterServiceVersion(params)
+	sm, err := container.RegisterServiceManager(params)
 	if err != nil {
 		return nil, err
 	}
 
-	criteria := &monitor.ImageNameCriteria{sv.ImageName + ":" + sv.ImageTag}
-
-	o.serviceUpdater.Register(sv, criteria)
-	return sv, nil
+	imageNameRegexp, _ := sm.FullImageNameRegexp()
+	criteria := &monitor.ImageNameAndImageTagRegexpCriteria{imageNameRegexp}
+	o.serviceUpdater.Register(sm, criteria)
+	return sm, nil
 }
 
-func (o *Overlord) GetServices() map[string]*service.ServiceContainer {
-	return o.serviceContainer
+func (o *Overlord) GetServices() map[string]*service.ServiceGroup {
+	return o.serviceGroupMapper
 }
