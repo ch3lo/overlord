@@ -2,6 +2,7 @@ package service
 
 import (
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/ch3lo/overlord/monitor"
@@ -11,6 +12,7 @@ import (
 // ServiceManager es una estructura que contiene la información de una
 // version de un servicio.
 type ServiceManager struct {
+	updateInstancesMux     sync.Mutex
 	Version                string
 	CreationDate           time.Time
 	ImageName              string
@@ -18,6 +20,28 @@ type ServiceManager struct {
 	instances              map[string]*ServiceInstance
 	MinInstancesPerCluster map[string]int
 	serviceUpdater         *monitor.ServiceUpdater
+}
+
+func NewServiceManager(clusterNames []string, params ServiceParameters) (*ServiceManager, error) {
+	sm := &ServiceManager{
+		Version:                params.Version,
+		CreationDate:           time.Now(),
+		ImageName:              params.ImageName,
+		ImageTag:               params.ImageTag,
+		instances:              make(map[string]*ServiceInstance),
+		MinInstancesPerCluster: make(map[string]int),
+	}
+
+	_, err := sm.FullImageNameRegexp()
+	if err != nil {
+		return nil, &ImageNameRegexpError{Regexp: sm.FullImageName(), Message: err.Error()}
+	}
+
+	for _, clusterName := range clusterNames {
+		sm.MinInstancesPerCluster[clusterName] = params.MinInstancesPerCluster[clusterName]
+	}
+
+	return sm, nil
 }
 
 func (s *ServiceManager) FullImageName() string {
@@ -41,6 +65,8 @@ func (s *ServiceManager) Id() string {
 }
 
 func (s *ServiceManager) Update(data map[string]*monitor.ServiceUpdaterData) {
+	s.updateInstancesMux.Lock()
+	defer s.updateInstancesMux.Unlock()
 
 	for k, v := range data {
 		instance := &ServiceInstance{}
@@ -60,12 +86,33 @@ func (s *ServiceManager) Update(data map[string]*monitor.ServiceUpdaterData) {
 		s.instances[k] = instance
 		util.Log.WithField("instance_id", instance.Id).Debugf("Servicio %s con data: %+v", v.GetLastAction(), instance)
 	}
-
-	util.Log.WithField("version", s.Version).Debugf("Has multitags %t", s.hasMultiTags())
 }
 
 func (s *ServiceManager) GetInstances() map[string]*ServiceInstance {
 	return s.instances
+}
+
+func (s *ServiceManager) CheckInstances() {
+	for {
+		util.Log.Infoln("CHECKING INSTANCES")
+		s.hasMultiTags()
+		s.checkMinInstances()
+
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func (s *ServiceManager) checkMinInstances() {
+	instancesPerCluster := make(map[string]int)
+	for _, v := range s.instances {
+		instancesPerCluster[v.ClusterId]++
+	}
+
+	for clusterId, minInstances := range s.MinInstancesPerCluster {
+		if instancesPerCluster[clusterId] < minInstances {
+			util.Log.Errorf("No hay un minimo de instancias para el cluster %s servicio %v", clusterId, s)
+		}
+	}
 }
 
 func (s *ServiceManager) hasMultiTags() bool {
@@ -73,6 +120,8 @@ func (s *ServiceManager) hasMultiTags() bool {
 	for _, v := range s.instances {
 		tags[v.ImageTag] = true
 	}
+
+	util.Log.WithField("version", s.Version).Debugf("Has multitags %t", len(tags) > 1)
 
 	return len(tags) > 1
 }

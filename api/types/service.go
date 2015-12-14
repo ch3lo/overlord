@@ -12,16 +12,21 @@ type Instance struct {
 	Address      string     `json:"address"`
 }
 
-type ServiceVersion struct {
-	Version      string     `json:"version,omitempty"`
-	CreationDate *time.Time `json:"creation_time,omitempty"`
-	ImageName    string     `json:"image_name,omitempty"`
-	ImageTag     string     `json:"image_tag,omitempty"`
-	Instances    []Instance `json:"instances,omitempty"`
+type ClusterCheck struct {
+	Instaces int `json:"instances,omitempty"`
 }
 
-type Service struct {
+type ServiceManager struct {
+	Version      string                  `json:"version,omitempty"`
+	CreationDate *time.Time              `json:"creation_time,omitempty"`
+	ImageName    string                  `json:"image_name,omitempty"`
+	ImageTag     string                  `json:"image_tag,omitempty"`
+	Instances    []Instance              `json:"instances,omitempty"`
+	ClusterCheck map[string]ClusterCheck `json:"cluster_check,omitempty"`
+}
+
+type ServiceGroup struct {
 	Id           string           `json:"id"`
 	CreationDate *time.Time       `json:"creation_time,omitempty"`
-	Versions     []ServiceVersion `json:"versions,omitempty"`
+	Managers     []ServiceManager `json:"managers,omitempty"`
 }

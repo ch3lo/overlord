@@ -7,6 +7,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/ch3lo/overlord/cluster"
+	"github.com/ch3lo/overlord/configuration"
 	"github.com/ch3lo/overlord/scheduler"
 	"github.com/ch3lo/overlord/util"
 )
@@ -55,18 +56,26 @@ func (data *ServiceUpdaterData) GetOrigin() scheduler.ServiceInformation {
 type ServiceUpdater struct {
 	updateServicesMux  sync.Mutex
 	subscriberMux      sync.Mutex
+	interval           time.Duration
 	subscribers        map[string]ServiceUpdaterSubscriber
 	subscriberCriteria map[string]ServiceChangeCriteria
 	clusters           map[string]*cluster.Cluster
 	services           map[string]*ServiceUpdaterData
 }
 
-func NewServiceUpdater(clusters map[string]*cluster.Cluster) *ServiceUpdater {
+func NewServiceUpdater(config *configuration.Configuration, clusters map[string]*cluster.Cluster) *ServiceUpdater {
 	if clusters == nil || len(clusters) == 0 {
 		util.Log.Fatalln("Al menos se debe monitorear un cluster")
 	}
 
+	interval := time.Second * 10
+
+	if config.Updater != nil && config.Updater.Interval != 0 {
+		interval = config.Updater.Interval
+	}
+
 	s := &ServiceUpdater{
+		interval:           interval,
 		subscribers:        make(map[string]ServiceUpdaterSubscriber),
 		subscriberCriteria: make(map[string]ServiceChangeCriteria),
 		services:           make(map[string]*ServiceUpdaterData),
@@ -161,7 +170,7 @@ func (su *ServiceUpdater) detachedMonitor() {
 			su.notify(updatedServices)
 		}
 
-		time.Sleep(time.Second * 10)
+		time.Sleep(su.interval)
 	}
 }
 

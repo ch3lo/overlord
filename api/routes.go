@@ -6,7 +6,7 @@ func Routes() *gin.Engine {
 	router := gin.New()
 
 	// API v1
-	v1Services := router.Group("/v1/services")
+	v1Services := router.Group("/api/v1/services")
 	v1Services.GET("/", GetServices)
 	v1Services.PUT("/", PutService)
 	//v1Services.GET("/test", ServicesTestGet)

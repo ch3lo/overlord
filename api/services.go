@@ -13,19 +13,20 @@ import (
 func GetServices(c *gin.Context) {
 	servicesList := manager.GetAppInstance().GetServices()
 
-	var apiServices []types.Service
+	var apiServices []types.ServiceGroup
 	for _, srv := range servicesList {
-		var apiVersions []types.ServiceVersion
+		var apiVersions []types.ServiceManager
 		for _, v := range srv.Container {
 			var instances []types.Instance
 			for _, instance := range v.GetInstances() {
 				instances = append(instances, types.Instance{
 					Id:           instance.Id,
 					CreationDate: &instance.CreationDate,
+					Cluster:      instance.ClusterId,
 				})
 			}
 
-			apiVersions = append(apiVersions, types.ServiceVersion{
+			apiVersions = append(apiVersions, types.ServiceManager{
 				Version:      v.Version,
 				CreationDate: &srv.CreationDate,
 				ImageName:    v.ImageName,
@@ -33,10 +34,10 @@ func GetServices(c *gin.Context) {
 				Instances:    instances,
 			})
 		}
-		apiServices = append(apiServices, types.Service{
+		apiServices = append(apiServices, types.ServiceGroup{
 			Id:           srv.Id,
 			CreationDate: &srv.CreationDate,
-			Versions:     apiVersions,
+			Managers:     apiVersions,
 		})
 	}
 
@@ -46,7 +47,7 @@ func GetServices(c *gin.Context) {
 }
 
 func PutService(c *gin.Context) {
-	var bindedService types.Service
+	var bindedService types.ServiceGroup
 
 	if err := c.BindJSON(&bindedService); err != nil {
 		util.Log.Println(err)
@@ -57,12 +58,19 @@ func PutService(c *gin.Context) {
 		return
 	}
 
-	for _, v := range bindedService.Versions {
+	for _, v := range bindedService.Managers {
+
+		clusterCheck := make(map[string]int)
+		for k, v := range v.ClusterCheck {
+			clusterCheck[k] = v.Instaces
+		}
+
 		params := service.ServiceParameters{
-			Id:        bindedService.Id,
-			Version:   v.Version,
-			ImageName: v.ImageName,
-			ImageTag:  v.ImageTag,
+			Id:                     bindedService.Id,
+			Version:                v.Version,
+			ImageName:              v.ImageName,
+			ImageTag:               v.ImageTag,
+			MinInstancesPerCluster: clusterCheck,
 		}
 
 		if _, err := manager.GetAppInstance().RegisterService(params); err != nil {
@@ -131,7 +139,7 @@ func GetServiceByClusterAndServiceId(c *gin.Context) {
 
 func PutServiceVersionByServiceId(c *gin.Context) {
 	//	serviceId := c.Param("service_id")
-	var sv types.ServiceVersion
+	var sv types.ServiceManager
 
 	if err := c.BindJSON(&sv); err != nil {
 		util.Log.Println(err)

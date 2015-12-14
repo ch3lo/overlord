@@ -107,8 +107,8 @@ func setupLogger(config logConfig) error {
 }
 
 func setupConfiguration(configFile string) (*configuration.Configuration, error) {
-	err := util.FileExists(configFile)
-	if err != nil {
+	_, err := os.Stat(configFile)
+	if os.IsNotExist(err) {
 		return nil, err
 	}
 

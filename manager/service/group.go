@@ -22,27 +22,19 @@ func NewServiceGroup(id string) *ServiceGroup {
 
 // RegisterServiceManager registra una nuevo manejador de servicios
 // Si el manager ya existia se retornara un error ServiceManagerAlreadyExist
-func (s *ServiceGroup) RegisterServiceManager(params ServiceParameters) (*ServiceManager, error) {
-	sv := &ServiceManager{
-		Version:                params.Version,
-		CreationDate:           time.Now(),
-		ImageName:              params.ImageName,
-		ImageTag:               params.ImageTag,
-		instances:              make(map[string]*ServiceInstance),
-		MinInstancesPerCluster: params.MinInstancesPerCluster,
+func (s *ServiceGroup) RegisterServiceManager(clusterNames []string, params ServiceParameters) (*ServiceManager, error) {
+	sm, err := NewServiceManager(clusterNames, params)
+	if err != nil {
+		return nil, err
 	}
 
 	for key, _ := range s.Container {
-		if key == sv.Id() {
+		if key == sm.Id() {
 			return nil, &ServiceManagerAlreadyExist{Service: s.Id, Version: params.Version}
 		}
 	}
 
-	_, err := sv.FullImageNameRegexp()
-	if err != nil {
-		return nil, &ImageNameRegexpError{Regexp: sv.FullImageName(), Message: err.Error()}
-	}
-
-	s.Container[params.Version] = sv
-	return sv, nil
+	go sm.CheckInstances()
+	s.Container[params.Version] = sm
+	return sm, nil
 }

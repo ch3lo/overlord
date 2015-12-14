@@ -1,9 +1,9 @@
 package configuration
 
 import (
-	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
@@ -13,6 +13,9 @@ func Test(t *testing.T) { check.TestingT(t) }
 
 // configStruct is a canonical example configuration, which should map to configYaml
 var configStruct = Configuration{
+	Updater: &Updater{
+		Interval: 10 * time.Second,
+	},
 	Clusters: map[string]Cluster{
 		"dal": Cluster{
 			Scheduler: Scheduler{
@@ -37,7 +40,7 @@ var configStruct = Configuration{
 			},
 		},
 		"sjc": Cluster{
-			Disbled: true,
+			Disabled: true,
 			Scheduler: Scheduler{
 				"marathon": Parameters{
 					"address":   "3.3.3.3:8081",
@@ -49,21 +52,28 @@ var configStruct = Configuration{
 			},
 		},
 	},
-	Notifications: Notifications{
-		Endpoints: []Endpoint{
-			{
-				Name: "endpoint-1",
-				URL:  "http://example.com",
-				Headers: http.Header{
-					"Authorization": []string{"Bearer <example>"},
-				},
-			},
+	Notifications: map[string]Parameters{
+		"email": Parameters{
+			"type":     "email",
+			"from":     "overlord@overlord.com",
+			"subject":  "[Notification] bla",
+			"smtp":     "smtp.overlord.com",
+			"user":     "user",
+			"password": "password",
+		},
+		"rundeck": Parameters{
+			"type":     "rundeck",
+			"endpoint": "http://rundeck.com",
+			"token":    "qwerty123",
+			"job":      "asd321",
 		},
 	},
 }
 
 // configYaml document representing configStruct
 var configYaml = `
+updater:
+  interval: 10s
 cluster:
   dal:
     scheduler:
@@ -91,11 +101,18 @@ cluster:
         tlscert: cert-marathon.pem
         tlskey: key-marathon.pem
 notifications:
-  endpoints:
-    - name: endpoint-1
-      url:  http://example.com
-      headers:
-        Authorization: [Bearer <example>]
+  email:
+    type: email
+    from: overlord@overlord.com
+    subject: "[Notification] bla"
+    smtp: smtp.overlord.com
+    user: user
+    password: password
+  rundeck:
+    type: rundeck
+    endpoint: http://rundeck.com
+    token: qwerty123
+    job: asd321
 `
 
 type ConfigSuite struct {

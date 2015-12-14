@@ -17,6 +17,7 @@ var overlordApp *Overlord
 
 type Overlord struct {
 	config             *configuration.Configuration
+	clusterNames       []string
 	serviceMux         sync.Mutex
 	serviceUpdater     *monitor.ServiceUpdater
 	serviceGroupMapper map[string]*service.ServiceGroup
@@ -29,7 +30,12 @@ func NewApp(config *configuration.Configuration) {
 	}
 
 	clusters := setupClusters(config)
-	app.setupServiceUpdater(clusters)
+
+	for k := range clusters {
+		app.clusterNames = append(app.clusterNames, k)
+	}
+
+	app.setupServiceUpdater(config, clusters)
 
 	overlordApp = app
 }
@@ -60,8 +66,8 @@ func setupClusters(config *configuration.Configuration) map[string]*cluster.Clus
 }
 
 // setupServiceUpdater inicia el componente que monitorea cambios de servicios
-func (o *Overlord) setupServiceUpdater(clusters map[string]*cluster.Cluster) {
-	su := monitor.NewServiceUpdater(clusters)
+func (o *Overlord) setupServiceUpdater(config *configuration.Configuration, clusters map[string]*cluster.Cluster) {
+	su := monitor.NewServiceUpdater(config, clusters)
 	su.Monitor()
 	o.serviceUpdater = su
 }
@@ -74,18 +80,9 @@ func (o *Overlord) RegisterService(params service.ServiceParameters) (*service.S
 	o.serviceMux.Lock()
 	defer o.serviceMux.Unlock()
 
-	container := service.NewServiceGroup(params.Id)
+	group := o.RegisterGroup(params)
 
-	for key, _ := range o.serviceGroupMapper {
-		if key == params.Id {
-			container = o.serviceGroupMapper[key]
-			break
-		}
-	}
-
-	o.serviceGroupMapper[params.Id] = container
-
-	sm, err := container.RegisterServiceManager(params)
+	sm, err := group.RegisterServiceManager(o.clusterNames, params)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +91,29 @@ func (o *Overlord) RegisterService(params service.ServiceParameters) (*service.S
 	criteria := &monitor.ImageNameAndImageTagRegexpCriteria{imageNameRegexp}
 	o.serviceUpdater.Register(sm, criteria)
 	return sm, nil
+}
+
+func (o *Overlord) RegisterGroup(params service.ServiceParameters) *service.ServiceGroup {
+	var group *service.ServiceGroup
+	if o.groupExists(params.Id) {
+		group = o.serviceGroupMapper[params.Id]
+	} else {
+		group = service.NewServiceGroup(params.Id)
+		o.serviceGroupMapper[params.Id] = group
+	}
+	return group
+}
+
+func (o *Overlord) groupExists(groupId string) bool {
+	groupExists := false
+	for key, _ := range o.serviceGroupMapper {
+		if key == groupId {
+			groupExists = true
+			break
+		}
+	}
+
+	return groupExists
 }
 
 func (o *Overlord) GetServices() map[string]*service.ServiceGroup {

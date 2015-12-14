@@ -28,9 +28,14 @@ type Cluster struct {
 	Scheduler Scheduler `yaml:"scheduler"`
 }
 
+type Updater struct {
+	Interval time.Duration `yaml:"interval,omitempty"`
+}
+
 type Configuration struct {
-	Clusters      map[string]Cluster `yaml:"cluster"`
-	Notifications Notifications      `yaml:"notifications,omitempty"`
+	Updater       *Updater              `yaml:"updater,omitempty"`
+	Clusters      map[string]Cluster    `yaml:"cluster"`
+	Notifications map[string]Parameters `yaml:"notifications,omitempty"`
 }
 
 type Scheduler map[string]Parameters
