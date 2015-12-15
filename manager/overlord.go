@@ -1,14 +1,18 @@
 package manager
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/ch3lo/overlord/cluster"
 	"github.com/ch3lo/overlord/configuration"
 	"github.com/ch3lo/overlord/manager/service"
 	"github.com/ch3lo/overlord/monitor"
+	"github.com/ch3lo/overlord/notification"
+	"github.com/ch3lo/overlord/notification/factory"
 	"github.com/ch3lo/overlord/util"
 	//Necesarios para que funcione el init()
+	_ "github.com/ch3lo/overlord/notification/email"
 	_ "github.com/ch3lo/overlord/scheduler/marathon"
 	_ "github.com/ch3lo/overlord/scheduler/swarm"
 )
@@ -21,21 +25,25 @@ type Overlord struct {
 	serviceMux         sync.Mutex
 	serviceUpdater     *monitor.ServiceUpdater
 	serviceGroupMapper map[string]*service.ServiceGroup
+	notifications      map[string]notification.Notification
 }
 
 func NewApp(config *configuration.Configuration) {
 	app := &Overlord{
 		config:             config,
 		serviceGroupMapper: make(map[string]*service.ServiceGroup),
+		notifications:      make(map[string]notification.Notification),
 	}
 
-	clusters := setupClusters(config)
+	app.setupNotification(config.Notifications)
+
+	clusters := setupClusters(config.Clusters)
 
 	for k := range clusters {
 		app.clusterNames = append(app.clusterNames, k)
 	}
 
-	app.setupServiceUpdater(config, clusters)
+	app.setupServiceUpdater(config.Updater, clusters)
 
 	overlordApp = app
 }
@@ -44,14 +52,32 @@ func GetAppInstance() *Overlord {
 	return overlordApp
 }
 
+// setupNotification inicializa los componentes de notificacion
+func (o *Overlord) setupNotification(config map[string]configuration.Notification) {
+	for key, params := range config {
+		if params.Disabled {
+			util.Log.Warnf("El notificador no esta habilitado: %s", key)
+			continue
+		}
+
+		notification, err := factory.Create(params.NotificationType, params.Config)
+		if err != nil {
+			util.Log.Fatalf("Error al crear la notificacion %s. %s", key, err.Error())
+		}
+
+		util.Log.Infof("Se creo nuevo notificador %s de tipo %s", key, params.NotificationType)
+		o.notifications[key] = notification
+	}
+}
+
 // setupClusters inicia el cluster, mapeando el cluster el id del cluster como key
-func setupClusters(config *configuration.Configuration) map[string]*cluster.Cluster {
+func setupClusters(config map[string]configuration.Cluster) map[string]*cluster.Cluster {
 	clusters := make(map[string]*cluster.Cluster)
 
-	for key, _ := range config.Clusters {
-		c, err := cluster.NewCluster(key, config.Clusters[key])
+	for key, _ := range config {
+		c, err := cluster.NewCluster(key, config[key])
 		if err != nil {
-			util.Log.Infof(err.Error())
+			util.Log.Warnln(err.Error())
 			continue
 		}
 
@@ -66,7 +92,7 @@ func setupClusters(config *configuration.Configuration) map[string]*cluster.Clus
 }
 
 // setupServiceUpdater inicia el componente que monitorea cambios de servicios
-func (o *Overlord) setupServiceUpdater(config *configuration.Configuration, clusters map[string]*cluster.Cluster) {
+func (o *Overlord) setupServiceUpdater(config *configuration.Updater, clusters map[string]*cluster.Cluster) {
 	su := monitor.NewServiceUpdater(config, clusters)
 	su.Monitor()
 	o.serviceUpdater = su
@@ -95,7 +121,8 @@ func (o *Overlord) RegisterService(params service.ServiceParameters) (*service.S
 
 func (o *Overlord) RegisterGroup(params service.ServiceParameters) *service.ServiceGroup {
 	var group *service.ServiceGroup
-	if o.groupExists(params.Id) {
+	var ok bool
+	if group, ok = o.serviceGroupMapper[params.Id]; ok {
 		group = o.serviceGroupMapper[params.Id]
 	} else {
 		group = service.NewServiceGroup(params.Id)
@@ -104,18 +131,15 @@ func (o *Overlord) RegisterGroup(params service.ServiceParameters) *service.Serv
 	return group
 }
 
-func (o *Overlord) groupExists(groupId string) bool {
-	groupExists := false
-	for key, _ := range o.serviceGroupMapper {
-		if key == groupId {
-			groupExists = true
-			break
-		}
-	}
-
-	return groupExists
-}
-
 func (o *Overlord) GetServices() map[string]*service.ServiceGroup {
 	return o.serviceGroupMapper
+}
+
+// NotificationDisabled error generado cuando un notificador no esta habilitado
+type NotificationDisabled struct {
+	Name string
+}
+
+func (err NotificationDisabled) Error() string {
+	return fmt.Sprintf("El notificador no esta habilitado: %s", err.Name)
 }

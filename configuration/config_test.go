@@ -52,20 +52,35 @@ var configStruct = Configuration{
 			},
 		},
 	},
-	Notifications: map[string]Parameters{
-		"email": Parameters{
-			"type":     "email",
-			"from":     "overlord@overlord.com",
-			"subject":  "[Notification] bla",
-			"smtp":     "smtp.overlord.com",
-			"user":     "user",
-			"password": "password",
+	Notifications: map[string]Notification{
+		"email-id": {
+			Disabled:         false,
+			NotificationType: "email",
+			Config: Parameters{
+				"from":     "overlord@overlord.com",
+				"subject":  "[Notification] bla",
+				"smtp":     "smtp.overlord.com",
+				"user":     "user",
+				"password": "password",
+			},
 		},
-		"rundeck": Parameters{
-			"type":     "rundeck",
-			"endpoint": "http://rundeck.com",
-			"token":    "qwerty123",
-			"job":      "asd321",
+		"email-id2": {
+			NotificationType: "email",
+			Config: Parameters{
+				"from":     "overlord@overlord.com",
+				"subject":  "[Notification] bla",
+				"smtp":     "smtp.overlord.com",
+				"user":     "user",
+				"password": "password",
+			},
+		},
+		"rundeck-id": {
+			NotificationType: "rundeck",
+			Config: Parameters{
+				"endpoint": "http://rundeck.com",
+				"token":    "qwerty123",
+				"job":      "asd321",
+			},
 		},
 	},
 }
@@ -101,18 +116,29 @@ cluster:
         tlscert: cert-marathon.pem
         tlskey: key-marathon.pem
 notifications:
-  email:
+  email-id:
+    disabled: false
     type: email
-    from: overlord@overlord.com
-    subject: "[Notification] bla"
-    smtp: smtp.overlord.com
-    user: user
-    password: password
-  rundeck:
+    config:
+      from: overlord@overlord.com
+      subject: "[Notification] bla"
+      smtp: smtp.overlord.com
+      user: user
+      password: password
+  email-id2:
+    type: email
+    config:
+      from: overlord@overlord.com
+      subject: "[Notification] bla"
+      smtp: smtp.overlord.com
+      user: user
+      password: password
+  rundeck-id:
     type: rundeck
-    endpoint: http://rundeck.com
-    token: qwerty123
-    job: asd321
+    config:
+      endpoint: http://rundeck.com
+      token: qwerty123
+      job: asd321
 `
 
 type ConfigSuite struct {

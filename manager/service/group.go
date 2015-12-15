@@ -28,10 +28,8 @@ func (s *ServiceGroup) RegisterServiceManager(clusterNames []string, params Serv
 		return nil, err
 	}
 
-	for key, _ := range s.Container {
-		if key == sm.Id() {
-			return nil, &ServiceManagerAlreadyExist{Service: s.Id, Version: params.Version}
-		}
+	if _, ok := s.Container[sm.Id()]; ok {
+		return nil, &ServiceManagerAlreadyExist{Service: s.Id, Version: params.Version}
 	}
 
 	go sm.CheckInstances()

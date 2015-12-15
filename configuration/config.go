@@ -33,14 +33,20 @@ type Updater struct {
 }
 
 type Configuration struct {
-	Updater       *Updater              `yaml:"updater,omitempty"`
-	Clusters      map[string]Cluster    `yaml:"cluster"`
-	Notifications map[string]Parameters `yaml:"notifications,omitempty"`
+	Updater       *Updater                `yaml:"updater,omitempty"`
+	Clusters      map[string]Cluster      `yaml:"cluster"`
+	Notifications map[string]Notification `yaml:"notifications,omitempty"`
 }
 
-type Scheduler map[string]Parameters
+type Notification struct {
+	Disabled         bool       `yaml:"disabled,omitempty"`
+	NotificationType string     `yaml:"type,omitempty"`
+	Config           Parameters `yaml:"config,omitempty"`
+}
 
 type Parameters map[string]interface{}
+
+type Scheduler map[string]Parameters
 
 func (scheduler *Scheduler) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var schedulerMap map[string]Parameters
@@ -84,12 +90,11 @@ func (scheduler Scheduler) Parameters() Parameters {
 func (scheduler Scheduler) Type() string {
 	var schedulerType []string
 
-	// Return only key in this map
 	for k := range scheduler {
 		schedulerType = append(schedulerType, k)
 	}
 	if len(schedulerType) > 1 {
-		panic("multiple storage drivers specified in configuration or environment: " + strings.Join(schedulerType, ", "))
+		panic("multiple schedulers definidos: " + strings.Join(schedulerType, ", "))
 	}
 	if len(schedulerType) == 1 {
 		return schedulerType[0]

@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"github.com/ch3lo/overlord/configuration"
 	"github.com/ch3lo/overlord/scheduler"
 	"github.com/ch3lo/overlord/scheduler/factory"
@@ -28,6 +29,10 @@ func NewCluster(name string, config configuration.Cluster) (*Cluster, error) {
 		name:      name,
 		scheduler: clusterScheduler,
 	}
+
+	util.Log.WithFields(log.Fields{
+		"cluster": name,
+	}).Infof("Se creo un nuevo scheduler %s", config.Scheduler.Type())
 
 	return c, nil
 }

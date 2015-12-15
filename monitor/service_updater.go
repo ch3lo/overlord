@@ -63,15 +63,15 @@ type ServiceUpdater struct {
 	services           map[string]*ServiceUpdaterData
 }
 
-func NewServiceUpdater(config *configuration.Configuration, clusters map[string]*cluster.Cluster) *ServiceUpdater {
+func NewServiceUpdater(config *configuration.Updater, clusters map[string]*cluster.Cluster) *ServiceUpdater {
 	if clusters == nil || len(clusters) == 0 {
 		util.Log.Fatalln("Al menos se debe monitorear un cluster")
 	}
 
 	interval := time.Second * 10
 
-	if config.Updater != nil && config.Updater.Interval != 0 {
-		interval = config.Updater.Interval
+	if config != nil && config.Interval != 0 {
+		interval = config.Interval
 	}
 
 	s := &ServiceUpdater{
