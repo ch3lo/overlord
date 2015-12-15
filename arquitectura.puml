@@ -68,6 +68,7 @@ ServiceManager *- ServiceInstance
 ServiceManager ..|> ServiceUpdaterSubscriber
 
 Overlord *- ServiceUpdater
+Overlord *- Cluster
 
 Swarm --> ServiceInformation
 Marathon --> ServiceInformation

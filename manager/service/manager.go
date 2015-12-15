@@ -13,6 +13,7 @@ import (
 // version de un servicio.
 type ServiceManager struct {
 	updateInstancesMux     sync.Mutex
+	quitCheck              chan bool
 	Version                string
 	CreationDate           time.Time
 	ImageName              string
@@ -24,6 +25,7 @@ type ServiceManager struct {
 
 func NewServiceManager(clusterNames []string, params ServiceParameters) (*ServiceManager, error) {
 	sm := &ServiceManager{
+		quitCheck:              make(chan bool),
 		Version:                params.Version,
 		CreationDate:           time.Now(),
 		ImageName:              params.ImageName,
@@ -92,13 +94,29 @@ func (s *ServiceManager) GetInstances() map[string]*ServiceInstance {
 	return s.instances
 }
 
-func (s *ServiceManager) CheckInstances() {
-	for {
-		util.Log.Infoln("CHECKING INSTANCES")
-		s.hasMultiTags()
-		s.checkMinInstances()
+func (s *ServiceManager) StartCheck() {
+	go s.checkInstances()
+}
 
-		time.Sleep(10 * time.Second)
+func (s *ServiceManager) StopCheck() {
+	util.Log.Infoln("Deteniendo check")
+	s.quitCheck <- true
+	<-s.quitCheck
+	util.Log.Infoln("Check detenido")
+}
+
+func (s *ServiceManager) checkInstances() {
+	for {
+		select {
+		case <-s.quitCheck:
+			util.Log.Infoln("Finalizando check")
+			s.quitCheck <- true
+			return
+		case <-time.After(10 * time.Second):
+			util.Log.Infoln("CHECKING INSTANCES")
+			s.hasMultiTags()
+			s.checkMinInstances()
+		}
 	}
 }
 

@@ -89,10 +89,8 @@ func (su *ServiceUpdater) Register(sub ServiceUpdaterSubscriber, cc ServiceChang
 	su.subscriberMux.Lock()
 	defer su.subscriberMux.Unlock()
 
-	for subscriberId, _ := range su.subscribers {
-		if subscriberId == sub.Id() {
-			return
-		}
+	if _, ok := su.subscribers[sub.Id()]; ok {
+		return
 	}
 
 	su.subscriberCriteria[sub.Id()] = cc
@@ -110,13 +108,11 @@ func (su *ServiceUpdater) Remove(sub ServiceUpdaterSubscriber) {
 	su.subscriberMux.Lock()
 	defer su.subscriberMux.Unlock()
 
-	for k, v := range su.subscribers {
-		if v.Id() == sub.Id() {
-			delete(su.subscriberCriteria, k)
-			delete(su.subscribers, k)
-			util.Log.Infof("Se removio el subscriptor: %s", sub.Id())
-			return
-		}
+	if _, ok := su.subscribers[sub.Id()]; ok {
+		delete(su.subscriberCriteria, sub.Id())
+		delete(su.subscribers, sub.Id())
+		util.Log.Infof("Se removio el subscriptor: %s", sub.Id())
+		return
 	}
 }
 

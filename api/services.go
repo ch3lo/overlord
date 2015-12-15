@@ -16,7 +16,7 @@ func GetServices(c *gin.Context) {
 	var apiServices []types.ServiceGroup
 	for _, srv := range servicesList {
 		var apiVersions []types.ServiceManager
-		for _, v := range srv.Container {
+		for _, v := range srv.Managers {
 			var instances []types.Instance
 			for _, instance := range v.GetInstances() {
 				instances = append(instances, types.Instance{

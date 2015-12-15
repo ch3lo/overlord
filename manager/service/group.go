@@ -6,7 +6,7 @@ import "time"
 type ServiceGroup struct {
 	Id           string
 	CreationDate time.Time
-	Container    map[string]*ServiceManager
+	Managers     map[string]*ServiceManager
 }
 
 // NewServiceGroup crea un nuevo contenedor de servicios con la fecha actual
@@ -14,7 +14,7 @@ func NewServiceGroup(id string) *ServiceGroup {
 	container := &ServiceGroup{
 		Id:           id,
 		CreationDate: time.Now(),
-		Container:    make(map[string]*ServiceManager),
+		Managers:     make(map[string]*ServiceManager),
 	}
 
 	return container
@@ -28,11 +28,11 @@ func (s *ServiceGroup) RegisterServiceManager(clusterNames []string, params Serv
 		return nil, err
 	}
 
-	if _, ok := s.Container[sm.Id()]; ok {
+	if _, ok := s.Managers[sm.Id()]; ok {
 		return nil, &ServiceManagerAlreadyExist{Service: s.Id, Version: params.Version}
 	}
 
-	go sm.CheckInstances()
-	s.Container[params.Version] = sm
+	sm.StartCheck()
+	s.Managers[params.Version] = sm
 	return sm, nil
 }
