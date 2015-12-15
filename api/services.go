@@ -4,14 +4,14 @@ import (
 	"net/http"
 
 	"github.com/ch3lo/overlord/api/types"
-	"github.com/ch3lo/overlord/manager"
+	"github.com/ch3lo/overlord/engine"
 	"github.com/ch3lo/overlord/manager/service"
 	"github.com/ch3lo/overlord/util"
 	"github.com/gin-gonic/gin"
 )
 
 func GetServices(c *gin.Context) {
-	servicesList := manager.GetAppInstance().GetServices()
+	servicesList := engine.GetAppInstance().GetServices()
 
 	var apiServices []types.ServiceGroup
 	for _, srv := range servicesList {
@@ -73,7 +73,7 @@ func PutService(c *gin.Context) {
 			MinInstancesPerCluster: clusterCheck,
 		}
 
-		if _, err := manager.GetAppInstance().RegisterService(params); err != nil {
+		if _, err := engine.GetAppInstance().RegisterService(params); err != nil {
 			util.Log.Println(err)
 
 			var newErr CustomStatusAndMessageError

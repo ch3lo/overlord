@@ -1,12 +1,22 @@
 @startuml
 package manager {
-    class Overlord
 
     package service {
         class ServiceGroup
         class ServiceManager
         class ServiceInstance
+
+        ServiceGroup *- ServiceManager
+        ServiceManager *- ServiceInstance
     }
+}
+
+package engine {
+    class Overlord
+}
+
+package configuration {
+  class Configuration
 }
 
 package cluster {
@@ -28,12 +38,26 @@ package monitor {
     }
     class ServiceUpdaterData
     interface ServiceChangeCriteria
+
+    ServiceUpdater o- ServiceUpdaterSubscriber
+    ServiceUpdater *-- ServiceUpdaterData
+    ServiceUpdater o-- ServiceChangeCriteria
 }
 
 package collector {
 }
 
 package notification {
+    interface Notification {
+        Id() strng
+        Notify(...)
+    }
+
+    class Email
+    class Rundeck
+
+    Notification <|.. Email
+    Notification <|.. Rundeck
 }
 
 package api {
@@ -56,31 +80,26 @@ package scheduler {
     class Swarm
     class Marathon
     class ServiceInformationStatus
-}
 
+    Scheduler <|.. Swarm
+    Scheduler <|.. Marathon
+
+    Swarm --> ServiceInformation
+    Marathon --> ServiceInformation
+    ServiceInformation -> ServiceInformationStatus
+}
 
 ApiEngine -> Overlord
 
-ServiceGroup -* Overlord
-ServiceGroup *- ServiceManager
-ServiceManager *- ServiceInstance
-
 ServiceManager ..|> ServiceUpdaterSubscriber
+ServiceGroup -* Overlord
+
 
 Overlord *- ServiceUpdater
 Overlord *- Cluster
-
-Swarm --> ServiceInformation
-Marathon --> ServiceInformation
-ServiceInformation -> ServiceInformationStatus
-
-Scheduler <|.. Swarm
-Scheduler <|.. Marathon
+Overlord o- Configuration
+Overlord *- Notification
 
 Cluster -> Scheduler
 ServiceUpdater o-- Cluster
-
-ServiceUpdater o- ServiceUpdaterSubscriber
-ServiceUpdater *-- ServiceUpdaterData
-ServiceUpdater o-- ServiceChangeCriteria
 @enduml

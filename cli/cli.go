@@ -10,14 +10,13 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/ch3lo/overlord/configuration"
-	"github.com/ch3lo/overlord/manager"
+	"github.com/ch3lo/overlord/engine"
 	"github.com/ch3lo/overlord/util"
 	"github.com/ch3lo/overlord/version"
 	"github.com/codegangsta/cli"
 )
 
 var logFile *os.File = nil
-var overlord *manager.Overlord
 
 func globalFlags() []cli.Flag {
 	flags := []cli.Flag{
@@ -148,7 +147,7 @@ func setupApplication(c *cli.Context) error {
 		return err
 	}
 
-	manager.NewApp(appConfig)
+	engine.NewApp(appConfig)
 	return nil
 }
 
