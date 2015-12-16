@@ -1,8 +1,12 @@
 package email
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/ch3lo/overlord/notification"
 	"github.com/ch3lo/overlord/notification/factory"
+	"github.com/ch3lo/overlord/util"
 )
 
 const notificationId = "email"
@@ -14,12 +18,13 @@ func init() {
 // emailCreator implementa la interfaz factory.NotificationFactory
 type emailCreator struct{}
 
-func (factory *emailCreator) Create(parameters map[string]interface{}) (notification.Notification, error) {
-	return NewFromParameters(parameters)
+func (factory *emailCreator) Create(id string, parameters map[string]interface{}) (notification.Notification, error) {
+	return NewFromParameters(id, parameters)
 }
 
 // EmailParameters encapsula los parametros de configuracion de Email
 type EmailParameters struct {
+	id       string
 	from     string
 	subject  string
 	smtp     string
@@ -28,15 +33,32 @@ type EmailParameters struct {
 }
 
 // NewFromParameters construye un EmailNotification a partir de un mapeo de parámetros
-func NewFromParameters(parameters map[string]interface{}) (*EmailNotification, error) {
-	params := EmailParameters{}
+func NewFromParameters(id string, parameters map[string]interface{}) (*EmailNotification, error) {
+
+	smtp, ok := parameters["smtp"]
+	if !ok || fmt.Sprint(smtp) == "" {
+		return nil, errors.New("Parametro smtp no existe")
+	}
+
+	subject := ""
+	if subjectTmp, ok := parameters["subject"]; ok {
+		subject = fmt.Sprint(subjectTmp)
+	}
+
+	params := EmailParameters{
+		id:      id,
+		smtp:    fmt.Sprint(smtp),
+		subject: subject,
+	}
 	return New(params)
 }
 
 // New construye un nuevo EmailNotification
 func New(params EmailParameters) (*EmailNotification, error) {
 
-	email := new(EmailNotification)
+	email := &EmailNotification{
+		id: params.id,
+	}
 
 	return email, nil
 }
@@ -44,11 +66,13 @@ func New(params EmailParameters) (*EmailNotification, error) {
 // EmailNotification es una implementacion de notification.Notification
 // Permite la comunicacion via email
 type EmailNotification struct {
+	id string
 }
 
 func (n *EmailNotification) Id() string {
-	return notificationId
+	return n.id
 }
 
 func (n *EmailNotification) Notify() {
+	util.Log.Infoln("Notificando via email")
 }

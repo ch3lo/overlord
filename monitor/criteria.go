@@ -1,10 +1,6 @@
 package monitor
 
-import (
-	"regexp"
-
-	"github.com/ch3lo/overlord/scheduler"
-)
+import "regexp"
 
 type ServiceChangeCriteria interface {
 	MeetCriteria(status map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData
@@ -26,13 +22,27 @@ func (c *ImageNameAndImageTagRegexpCriteria) MeetCriteria(elements map[string]*S
 }
 
 type StatusCriteria struct {
-	Status scheduler.ServiceInformationStatus
+	Status ServiceDataStatus
 }
 
 func (c *StatusCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData {
 	filtered := make(map[string]*ServiceUpdaterData)
 	for k, v := range elements {
-		if c.Status == v.origin.Status {
+		if v.InStatus(c.Status) {
+			filtered[k] = elements[k]
+		}
+	}
+	return filtered
+}
+
+type HealthyCriteria struct {
+	Status bool
+}
+
+func (c *HealthyCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData {
+	filtered := make(map[string]*ServiceUpdaterData)
+	for k, v := range elements {
+		if v.Origin().Healthy() == c.Status {
 			filtered[k] = elements[k]
 		}
 	}

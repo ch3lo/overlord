@@ -5,9 +5,24 @@ package manager {
         class ServiceGroup
         class ServiceManager
         class ServiceInstance
+        class ServiceStatus
 
         ServiceGroup *- ServiceManager
-        ServiceManager *- ServiceInstance
+        ServiceManager *-- ServiceInstance
+        ServiceManager *-- ServiceStatus
+    }
+
+    package resource {
+
+    }
+
+    package report {
+      interface Broadcast {
+        Broadcast()
+      }
+      class Broadcaster
+
+      Broadcaster ..|> Broadcast
     }
 }
 
@@ -30,7 +45,7 @@ package monitor {
     class ServiceUpdater {
         Register(ServiceUpdaterSubscriber)
         Remove(ServiceUpdaterSubscriber)
-        notify()
+        Monitor()
     }
     interface ServiceUpdaterSubscriber {
         Id()
@@ -92,14 +107,18 @@ package scheduler {
 ApiEngine -> Overlord
 
 ServiceManager ..|> ServiceUpdaterSubscriber
-ServiceGroup -* Overlord
+ServiceManager o- Broadcast
 
+ServiceGroup -* Overlord
 
 Overlord *- ServiceUpdater
 Overlord *- Cluster
 Overlord o- Configuration
-Overlord *- Notification
+Overlord *- Broadcaster
 
-Cluster -> Scheduler
+Broadcaster o- Notification
+
+Cluster o- Scheduler
 ServiceUpdater o-- Cluster
+ServiceUpdaterData o-- ServiceInformation
 @enduml

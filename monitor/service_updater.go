@@ -12,14 +12,30 @@ import (
 	"github.com/ch3lo/overlord/util"
 )
 
-const service_updated string = "updated"
-const service_added string = "added"
-const service_removed string = "removed"
+type ServiceDataStatus int
+
+const (
+	SERVICE_UPDATED ServiceDataStatus = 1 + iota
+	SERVICE_ADDED
+	SERVICE_REMOVED
+	SERVICE_UPDATING
+)
+
+var statuses = [...]string{
+	"SERVICE_UPDATED",
+	"SERVICE_ADDED",
+	"SERVICE_REMOVED",
+	"SERVICE_UPDATING",
+}
+
+func (s ServiceDataStatus) String() string {
+	return statuses[s-1]
+}
 
 type ServiceUpdaterData struct {
 	registerDate time.Time
 	lastUpdate   time.Time
-	lastAction   string
+	lastAction   ServiceDataStatus
 	clusterId    string
 	origin       scheduler.ServiceInformation
 }
@@ -27,30 +43,19 @@ type ServiceUpdaterData struct {
 func NewServiceUpdaterData() *ServiceUpdaterData {
 	data := &ServiceUpdaterData{
 		registerDate: time.Now(),
-		lastAction:   service_added,
+		lastAction:   SERVICE_ADDED,
 		lastUpdate:   time.Now(),
 	}
 	return data
 }
 
-func (data *ServiceUpdaterData) GetRegisterDate() time.Time {
-	return data.registerDate
-}
-
-func (data *ServiceUpdaterData) GetLastUpdate() time.Time {
-	return data.lastUpdate
-}
-
-func (data *ServiceUpdaterData) GetLastAction() string {
-	return data.lastAction
-}
-
-func (data *ServiceUpdaterData) GetClusterId() string {
-	return data.clusterId
-}
-
-func (data *ServiceUpdaterData) GetOrigin() scheduler.ServiceInformation {
-	return data.origin
+func (data *ServiceUpdaterData) RegisterDate() time.Time              { return data.registerDate }
+func (data *ServiceUpdaterData) LastUpdate() time.Time                { return data.lastUpdate }
+func (data *ServiceUpdaterData) LastAction() ServiceDataStatus        { return data.lastAction }
+func (data *ServiceUpdaterData) ClusterId() string                    { return data.clusterId }
+func (data *ServiceUpdaterData) Origin() scheduler.ServiceInformation { return data.origin }
+func (data *ServiceUpdaterData) InStatus(status ServiceDataStatus) bool {
+	return data.lastAction == status
 }
 
 type ServiceUpdater struct {
@@ -63,14 +68,13 @@ type ServiceUpdater struct {
 	services           map[string]*ServiceUpdaterData
 }
 
-func NewServiceUpdater(config *configuration.Updater, clusters map[string]*cluster.Cluster) *ServiceUpdater {
+func NewServiceUpdater(config configuration.Updater, clusters map[string]*cluster.Cluster) *ServiceUpdater {
 	if clusters == nil || len(clusters) == 0 {
 		util.Log.Fatalln("Al menos se debe monitorear un cluster")
 	}
 
 	interval := time.Second * 10
-
-	if config != nil && config.Interval != 0 {
+	if config.Interval != 0 {
 		interval = config.Interval
 	}
 
@@ -173,11 +177,14 @@ func (su *ServiceUpdater) detachedMonitor() {
 func (su *ServiceUpdater) checkClusterServices(clusterId string, clusterServices []scheduler.ServiceInformation) map[string]*ServiceUpdaterData {
 	updatedServices := make(map[string]*ServiceUpdaterData)
 
-	// Se asume por defecto que un servicio fue removido
+	// Se asume por defecto que un servicio esta actualizandose
 	// Luego se actualiza al estado correcto
+	// Si el servicio ya fue removido no se toma en cuenta
+	// Si se remueve como falso positivo, se volvera a agregar el servicio al map en la iteracion
+	// pero se interpretara como un servicio nuevo
 	for k := range su.services {
-		if su.services[k].clusterId == clusterId {
-			su.services[k].lastAction = service_removed
+		if su.services[k].clusterId == clusterId && su.services[k].lastAction != SERVICE_REMOVED {
+			su.services[k].lastAction = SERVICE_UPDATING
 			su.services[k].lastUpdate = time.Now()
 			updatedServices[k] = su.services[k]
 		}
@@ -197,7 +204,7 @@ func (su *ServiceUpdater) checkClusterServices(clusterId string, clusterServices
 		}
 
 		su.services[v.Id].lastUpdate = time.Now()
-		su.services[v.Id].lastAction = service_updated
+		su.services[v.Id].lastAction = SERVICE_UPDATED
 
 		if reflect.DeepEqual(su.services[v.Id].origin, clusterServices[k]) {
 			delete(updatedServices, v.Id)
@@ -206,7 +213,15 @@ func (su *ServiceUpdater) checkClusterServices(clusterId string, clusterServices
 		}
 
 		su.services[v.Id].origin = clusterServices[k]
-		util.Log.WithField("cluster", clusterId).Debugf("Servicio tuvo un cambio %+v <-> %+v", su.services[v.Id].GetOrigin(), clusterServices[k])
+		util.Log.WithField("cluster", clusterId).Debugf("Servicio tuvo un cambio %+v <-> %+v", su.services[v.Id].Origin(), clusterServices[k])
+	}
+
+	for k := range su.services {
+		if su.services[k].lastAction == SERVICE_UPDATING {
+			util.Log.WithField("cluster", clusterId).Debugf("Servicio removido %+v", su.services[k])
+			su.services[k].lastAction = SERVICE_REMOVED
+			su.services[k].lastUpdate = time.Now()
+		}
 	}
 
 	return updatedServices

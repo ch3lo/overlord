@@ -1,6 +1,11 @@
 package service
 
-import "time"
+import (
+	"time"
+
+	"github.com/ch3lo/overlord/configuration"
+	"github.com/ch3lo/overlord/manager/report"
+)
 
 // ServiceGroup agrupa un conjuntos de versiones de un servicios
 type ServiceGroup struct {
@@ -22,8 +27,8 @@ func NewServiceGroup(id string) *ServiceGroup {
 
 // RegisterServiceManager registra una nuevo manejador de servicios
 // Si el manager ya existia se retornara un error ServiceManagerAlreadyExist
-func (s *ServiceGroup) RegisterServiceManager(clusterNames []string, params ServiceParameters) (*ServiceManager, error) {
-	sm, err := NewServiceManager(clusterNames, params)
+func (s *ServiceGroup) RegisterServiceManager(clusterNames []string, checkConfig configuration.Check, broadcaster report.Broadcast, params ServiceParameters) (*ServiceManager, error) {
+	sm, err := NewServiceManager(clusterNames, checkConfig, broadcaster, params)
 	if err != nil {
 		return nil, err
 	}

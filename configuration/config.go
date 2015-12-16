@@ -32,8 +32,18 @@ type Updater struct {
 	Interval time.Duration `yaml:"interval,omitempty"`
 }
 
+type Check struct {
+	Interval  time.Duration `yaml:"interval,omitempty"`
+	Threshold int           `yaml:"threshold,omitempty"`
+}
+
+type Manager struct {
+	Check Check `yaml:"check,omitempty"`
+}
+
 type Configuration struct {
-	Updater       *Updater                `yaml:"updater,omitempty"`
+	Updater       Updater                 `yaml:"updater,omitempty"`
+	Manager       Manager                 `yaml:"manager,omitempty"`
 	Clusters      map[string]Cluster      `yaml:"cluster"`
 	Notifications map[string]Notification `yaml:"notifications,omitempty"`
 }

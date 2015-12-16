@@ -17,8 +17,13 @@ func (s ServiceInformationStatus) String() string {
 }
 
 type ServiceInformation struct {
-	Id        string
-	ImageName string
-	ImageTag  string
-	Status    ServiceInformationStatus
+	Id         string
+	ImageName  string
+	ImageTag   string
+	Status     ServiceInformationStatus
+	FullStatus string
+}
+
+func (si ServiceInformation) Healthy() bool {
+	return si.Status == SERVICE_UP
 }

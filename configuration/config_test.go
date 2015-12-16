@@ -13,8 +13,14 @@ func Test(t *testing.T) { check.TestingT(t) }
 
 // configStruct is a canonical example configuration, which should map to configYaml
 var configStruct = Configuration{
-	Updater: &Updater{
+	Updater: Updater{
 		Interval: 10 * time.Second,
+	},
+	Manager: Manager{
+		Check: Check{
+			Interval:  30 * time.Second,
+			Threshold: 4,
+		},
 	},
 	Clusters: map[string]Cluster{
 		"dal": Cluster{
@@ -89,6 +95,10 @@ var configStruct = Configuration{
 var configYaml = `
 updater:
   interval: 10s
+manager:
+  check:
+    interval: 30s
+    threshold: 4
 cluster:
   dal:
     scheduler:

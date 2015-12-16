@@ -13,7 +13,7 @@ var notificationFactories = make(map[string]NotificationFactory)
 // NotificationFactory es una interfaz para crear un Notificador
 // Cada Notificador debe implementar estar interfaz y además llamar el metodo Register
 type NotificationFactory interface {
-	Create(parameters map[string]interface{}) (notification.Notification, error)
+	Create(id string, parameters map[string]interface{}) (notification.Notification, error)
 }
 
 // Register permite a una implementación de Notification estar disponible mediante un id que representa el tipo de notificador
@@ -31,12 +31,12 @@ func Register(name string, factory NotificationFactory) {
 
 // Create crea un notificador a partir del tipo de notificacion.
 // Si el notificador no estaba registrado se retornará un InvalidNotification
-func Create(name string, parameters map[string]interface{}) (notification.Notification, error) {
+func Create(name string, id string, parameters map[string]interface{}) (notification.Notification, error) {
 	notificationFactory, ok := notificationFactories[name]
 	if !ok {
 		return nil, InvalidNotification{name}
 	}
-	return notificationFactory.Create(parameters)
+	return notificationFactory.Create(id, parameters)
 }
 
 // InvalidNotification sucede cuando se instenta construir un Notificador no registrado

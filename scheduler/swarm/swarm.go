@@ -90,7 +90,7 @@ func New(params SwarmParameters) (*SwarmScheduler, error) {
 
 	swarm := new(SwarmScheduler)
 	var err error
-	util.Log.Debugf("Configuring Swarm with %+v", params)
+	util.Log.Debugf("Configurando Swarm con los parametros %+v", params)
 	if params.tlsverify {
 		swarm.client, err = docker.NewTLSClient(params.address, params.tlscert, params.tlskey, params.tlscacert)
 	} else {
@@ -149,10 +149,11 @@ func (ss *SwarmScheduler) GetInstances(filter scheduler.FilterInstances) ([]sche
 		}
 
 		instances = append(instances, scheduler.ServiceInformation{
-			Id:        v.ID,
-			Status:    status,
-			ImageName: imageName,
-			ImageTag:  imageTag,
+			Id:         v.ID,
+			Status:     status,
+			FullStatus: v.Status,
+			ImageName:  imageName,
+			ImageTag:   imageTag,
 		})
 	}
 

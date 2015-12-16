@@ -1,10 +1,6 @@
 package service
 
-import (
-	"time"
-
-	"github.com/ch3lo/overlord/scheduler"
-)
+import "time"
 
 // ServiceParameters es una estructura que encapsula los parametros
 // de configuración de un nuevo servicio
@@ -22,7 +18,7 @@ type ServiceInstance struct {
 	CreationDate time.Time
 	Address      string
 	Port         int
-	Status       scheduler.ServiceInformationStatus // TODO No se debe depender de scheduler
+	Healthy      bool
 	ClusterId    string
 	ImageName    string
 	ImageTag     string

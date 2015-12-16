@@ -6,6 +6,7 @@ import (
 
 	"github.com/ch3lo/overlord/cluster"
 	"github.com/ch3lo/overlord/configuration"
+	"github.com/ch3lo/overlord/manager/report"
 	"github.com/ch3lo/overlord/manager/service"
 	"github.com/ch3lo/overlord/monitor"
 	"github.com/ch3lo/overlord/notification"
@@ -21,9 +22,10 @@ var overlordApp *Overlord
 
 type Overlord struct {
 	config             *configuration.Configuration
-	clusterNames       []string
 	serviceMux         sync.Mutex
 	serviceUpdater     *monitor.ServiceUpdater
+	broadcaster        report.Broadcast
+	clusters           map[string]*cluster.Cluster
 	serviceGroupMapper map[string]*service.ServiceGroup
 	notifications      map[string]notification.Notification
 }
@@ -31,25 +33,34 @@ type Overlord struct {
 func NewApp(config *configuration.Configuration) {
 	app := &Overlord{
 		config:             config,
+		clusters:           make(map[string]*cluster.Cluster),
 		serviceGroupMapper: make(map[string]*service.ServiceGroup),
 		notifications:      make(map[string]notification.Notification),
 	}
 
 	app.setupNotification(config.Notifications)
-
-	clusters := setupClusters(config.Clusters)
-
-	for k := range clusters {
-		app.clusterNames = append(app.clusterNames, k)
-	}
-
-	app.setupServiceUpdater(config.Updater, clusters)
+	app.setupBroadcaster()
+	app.setupClusters(config.Clusters)
+	app.setupServiceUpdater(config.Updater)
 
 	overlordApp = app
 }
 
 func GetAppInstance() *Overlord {
 	return overlordApp
+}
+
+// setupNotification inicializa los componentes de broadcast
+func (o *Overlord) setupBroadcaster() {
+	b := report.NewBroadcaster()
+	for k := range o.notifications {
+		util.Log.Infoln("Registrando notificador en broadcaster", k)
+		if err := b.Register(o.notifications[k]); err != nil {
+			util.Log.Warnf("No se pudo registrar el notificador en el broadcaster: %s", err.Error())
+			continue
+		}
+	}
+	o.broadcaster = b
 }
 
 // setupNotification inicializa los componentes de notificacion
@@ -60,7 +71,7 @@ func (o *Overlord) setupNotification(config map[string]configuration.Notificatio
 			continue
 		}
 
-		notification, err := factory.Create(params.NotificationType, params.Config)
+		notification, err := factory.Create(params.NotificationType, key, params.Config)
 		if err != nil {
 			util.Log.Fatalf("Error al crear la notificacion %s. %s", key, err.Error())
 		}
@@ -68,12 +79,14 @@ func (o *Overlord) setupNotification(config map[string]configuration.Notificatio
 		util.Log.Infof("Se creo nuevo notificador %s de tipo %s", key, params.NotificationType)
 		o.notifications[key] = notification
 	}
+
+	if len(o.notifications) == 0 {
+		util.Log.Infoln("No hay notificadores configurados")
+	}
 }
 
 // setupClusters inicia el cluster, mapeando el cluster el id del cluster como key
-func setupClusters(config map[string]configuration.Cluster) map[string]*cluster.Cluster {
-	clusters := make(map[string]*cluster.Cluster)
-
+func (o *Overlord) setupClusters(config map[string]configuration.Cluster) {
 	for key, _ := range config {
 		c, err := cluster.NewCluster(key, config[key])
 		if err != nil {
@@ -81,21 +94,28 @@ func setupClusters(config map[string]configuration.Cluster) map[string]*cluster.
 			continue
 		}
 
-		clusters[key] = c
+		o.clusters[key] = c
+		util.Log.Infof("Se configuro el cluster %s", key)
 	}
 
-	if len(clusters) == 0 {
+	if len(o.clusters) == 0 {
 		util.Log.Fatalln("Al menos debe existir un cluster")
 	}
-
-	return clusters
 }
 
 // setupServiceUpdater inicia el componente que monitorea cambios de servicios
-func (o *Overlord) setupServiceUpdater(config *configuration.Updater, clusters map[string]*cluster.Cluster) {
-	su := monitor.NewServiceUpdater(config, clusters)
+func (o *Overlord) setupServiceUpdater(config configuration.Updater) {
+	su := monitor.NewServiceUpdater(config, o.clusters)
 	su.Monitor()
 	o.serviceUpdater = su
+}
+
+func (o *Overlord) clusterIds() []string {
+	var names []string
+	for k := range o.clusters {
+		names = append(names, k)
+	}
+	return names
 }
 
 // RegisterService registra un nuevo servicio en un contenedor de servicios
@@ -108,7 +128,7 @@ func (o *Overlord) RegisterService(params service.ServiceParameters) (*service.S
 
 	group := o.RegisterGroup(params)
 
-	sm, err := group.RegisterServiceManager(o.clusterNames, params)
+	sm, err := group.RegisterServiceManager(o.clusterIds(), o.config.Manager.Check, o.broadcaster, params)
 	if err != nil {
 		return nil, err
 	}
