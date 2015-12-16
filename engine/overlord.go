@@ -73,6 +73,9 @@ func (o *Overlord) setupBroadcaster(config configuration.Notification) {
 	if len(notifications) == 0 {
 		util.Log.Warnln("No hay notificadores configurados")
 	}
+
+	o.broadcaster = broadcaster
+
 }
 
 // setupClusters inicia el cluster, mapeando el cluster el id del cluster como key

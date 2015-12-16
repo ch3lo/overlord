@@ -21,18 +21,18 @@ type serviceStatus struct {
 // ServiceManager es una estructura que contiene la información de una
 // version de un servicio.
 type ServiceManager struct {
-	updateInstancesMux     sync.Mutex
-	quitCheck              chan bool
-	Version                string
-	CreationDate           time.Time
-	ImageName              string
-	ImageTag               string
-	interval               time.Duration
-	instances              map[string]*ServiceInstance
-	MinInstancesPerCluster map[string]int
-	broadcaster            report.Broadcast
-	threshold              int // limite de checks antes de marcar el servicio como fallido
-	status                 serviceStatus
+	updateInstancesMux sync.Mutex
+	quitCheck          chan bool
+	Version            string
+	CreationDate       time.Time
+	ImageName          string
+	ImageTag           string
+	interval           time.Duration
+	instances          map[string]*ServiceInstance
+	broadcaster        report.Broadcast
+	threshold          int // limite de checks antes de marcar el servicio como fallido
+	status             serviceStatus
+	checkStatus        Checker
 }
 
 func NewServiceManager(clusterNames []string, checkConfig configuration.Check, broadcaster report.Broadcast, params ServiceParameters) (*ServiceManager, error) {
@@ -47,17 +47,16 @@ func NewServiceManager(clusterNames []string, checkConfig configuration.Check, b
 	}
 
 	sm := &ServiceManager{
-		quitCheck:              make(chan bool),
-		Version:                params.Version,
-		CreationDate:           time.Now(),
-		ImageName:              params.ImageName,
-		ImageTag:               params.ImageTag,
-		interval:               interval,
-		threshold:              threshold,
-		instances:              make(map[string]*ServiceInstance),
-		MinInstancesPerCluster: make(map[string]int),
-		broadcaster:            broadcaster,
-		status:                 serviceStatus{},
+		quitCheck:    make(chan bool),
+		Version:      params.Version,
+		CreationDate: time.Now(),
+		ImageName:    params.ImageName,
+		ImageTag:     params.ImageTag,
+		interval:     interval,
+		threshold:    threshold,
+		instances:    make(map[string]*ServiceInstance),
+		broadcaster:  broadcaster,
+		status:       serviceStatus{},
 	}
 
 	_, err := sm.FullImageNameRegexp()
@@ -65,22 +64,28 @@ func NewServiceManager(clusterNames []string, checkConfig configuration.Check, b
 		return nil, &ImageNameRegexpError{Regexp: sm.FullImageName(), Message: err.Error()}
 	}
 
-	for _, clusterName := range clusterNames {
-		sm.MinInstancesPerCluster[clusterName] = params.MinInstancesPerCluster[clusterName]
-	}
+	sm.checkStatus = sm.buildChecker(clusterNames, params)
 
 	return sm, nil
 }
 
-func (s *ServiceManager) FullImageName() string {
-	fullName := s.ImageName
-	if s.ImageTag != "" {
-		fullName += ":" + s.ImageTag
-	} else {
-		fullName += ":latest"
+func (s *ServiceManager) buildChecker(clusterNames []string, params ServiceParameters) Checker {
+	minInstances := make(map[string]int)
+	for _, clusterName := range clusterNames {
+		minInstances[clusterName] = params.MinInstancesPerCluster[clusterName]
 	}
 
-	return fullName
+	minInstancesChecker := &MinInstancesCheck{MinInstancesPerCluster: minInstances}
+	return minInstancesChecker
+}
+
+func (s *ServiceManager) FullImageName() string {
+	fullName := s.ImageName + ":"
+	tag := "latest"
+	if s.ImageTag != "" {
+		tag = s.ImageTag
+	}
+	return fullName + tag
 }
 
 func (s *ServiceManager) FullImageNameRegexp() (*regexp.Regexp, error) {
@@ -100,8 +105,7 @@ func (s *ServiceManager) Update(data map[string]*monitor.ServiceUpdaterData) {
 		if v.InStatus(monitor.SERVICE_REMOVED) {
 			delete(s.instances, k)
 		} else {
-			instance := &ServiceInstance{}
-			instance = s.instances[k]
+			instance := s.instances[k]
 			if instance == nil {
 				instance = &ServiceInstance{
 					Id:           v.Origin().ID,
@@ -119,7 +123,6 @@ func (s *ServiceManager) Update(data map[string]*monitor.ServiceUpdaterData) {
 				"manager_id": s.Id(),
 			}).Debugf("Servicio %s con data: %+v", v.LastAction(), instance)
 		}
-
 	}
 }
 
@@ -140,12 +143,7 @@ func (s *ServiceManager) StopCheck() {
 }
 
 func (s *ServiceManager) check() {
-	hasError := false
-	if !s.checkMinInstances() {
-		hasError = true
-	}
-
-	if hasError {
+	if s.checkStatus.Ok(s) {
 		s.status.consecutiveFails++
 		s.status.failed++
 	} else {
@@ -171,33 +169,4 @@ func (s *ServiceManager) checkInstances() {
 			s.check()
 		}
 	}
-}
-
-func (s *ServiceManager) checkMinInstances() bool {
-	instancesPerCluster := make(map[string]int)
-	for _, v := range s.instances {
-		if v.Healthy {
-			instancesPerCluster[v.ClusterId]++
-		}
-	}
-
-	for clusterId, minInstances := range s.MinInstancesPerCluster {
-		if instancesPerCluster[clusterId] < minInstances {
-			util.Log.WithField("manager_id", s.Id()).Errorf("No hay un minimo de instancias para el cluster %s servicio %v", clusterId, s)
-			return false
-		}
-	}
-
-	return true
-}
-
-func (s *ServiceManager) hasMultiTags() bool {
-	tags := make(map[string]bool)
-	for _, v := range s.instances {
-		tags[v.ImageTag] = true
-	}
-
-	util.Log.WithField("manager_id", s.Id()).Debugf("Version %s Has multitags %t", s.Version, len(tags) > 1)
-
-	return len(tags) > 1
 }
