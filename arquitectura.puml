@@ -1,15 +1,14 @@
 @startuml
 package manager {
-
     package service {
         class ServiceGroup
         class ServiceManager
         class ServiceInstance
         class ServiceStatus
 
-        ServiceGroup *- ServiceManager
-        ServiceManager *-- ServiceInstance
-        ServiceManager *-- ServiceStatus
+        ServiceGroup *-- ServiceManager
+        ServiceInstance --* ServiceManager
+        ServiceStatus --* ServiceManager
     }
 
     package resource {
@@ -21,9 +20,15 @@ package manager {
         Broadcast()
       }
       class Broadcaster
+      class BroadcastStatus
+      class BroadcastWorker
 
-      Broadcaster ..|> Broadcast
+      Broadcast <|.. Broadcaster
+      Broadcaster *-- BroadcastWorker
+      BroadcastWorker *- BroadcastStatus
     }
+
+    ServiceManager o- Broadcast
 }
 
 package engine {
@@ -52,11 +57,23 @@ package monitor {
         Update(map[string]ServiceUpdaterData)
     }
     class ServiceUpdaterData
-    interface ServiceChangeCriteria
+    interface ServiceChangeCriteria {
+      MeetCriteria(map[string]*ServiceUpdaterData)
+    }
+    class ImageNameAndImageTagRegexpCriteria
+    class StatusCriteria
+    class HealthyCriteria
+    class AndCriteria
+    class OrCriteria
 
     ServiceUpdater o- ServiceUpdaterSubscriber
     ServiceUpdater *-- ServiceUpdaterData
     ServiceUpdater o-- ServiceChangeCriteria
+    ServiceChangeCriteria <|.. ImageNameAndImageTagRegexpCriteria
+    ServiceChangeCriteria <|.. StatusCriteria
+    ServiceChangeCriteria <|.. HealthyCriteria
+    ServiceChangeCriteria <|.. AndCriteria
+    ServiceChangeCriteria <|.. OrCriteria
 }
 
 package collector {
@@ -106,17 +123,17 @@ package scheduler {
 
 ApiEngine -> Overlord
 
-ServiceManager ..|> ServiceUpdaterSubscriber
-ServiceManager o- Broadcast
+ServiceManager .|> ServiceUpdaterSubscriber
+
 
 ServiceGroup -* Overlord
 
 Overlord *- ServiceUpdater
 Overlord *- Cluster
 Overlord o- Configuration
-Overlord *- Broadcaster
+Overlord *- Broadcast
 
-Broadcaster o- Notification
+BroadcastWorker -> Notification : decora
 
 Cluster o- Scheduler
 ServiceUpdater o-- Cluster

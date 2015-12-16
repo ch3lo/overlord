@@ -21,13 +21,12 @@ import (
 var overlordApp *Overlord
 
 type Overlord struct {
-	config             *configuration.Configuration
 	serviceMux         sync.Mutex
+	config             *configuration.Configuration
 	serviceUpdater     *monitor.ServiceUpdater
 	broadcaster        report.Broadcast
 	clusters           map[string]*cluster.Cluster
 	serviceGroupMapper map[string]*service.ServiceGroup
-	notifications      map[string]notification.Notification
 }
 
 func NewApp(config *configuration.Configuration) {
@@ -35,11 +34,9 @@ func NewApp(config *configuration.Configuration) {
 		config:             config,
 		clusters:           make(map[string]*cluster.Cluster),
 		serviceGroupMapper: make(map[string]*service.ServiceGroup),
-		notifications:      make(map[string]notification.Notification),
 	}
 
-	app.setupNotification(config.Notifications)
-	app.setupBroadcaster()
+	app.setupBroadcaster(config.Notification)
 	app.setupClusters(config.Clusters)
 	app.setupServiceUpdater(config.Updater)
 
@@ -50,22 +47,11 @@ func GetAppInstance() *Overlord {
 	return overlordApp
 }
 
-// setupNotification inicializa los componentes de broadcast
-func (o *Overlord) setupBroadcaster() {
-	b := report.NewBroadcaster()
-	for k := range o.notifications {
-		util.Log.Infoln("Registrando notificador en broadcaster", k)
-		if err := b.Register(o.notifications[k]); err != nil {
-			util.Log.Warnf("No se pudo registrar el notificador en el broadcaster: %s", err.Error())
-			continue
-		}
-	}
-	o.broadcaster = b
-}
-
-// setupNotification inicializa los componentes de notificacion
-func (o *Overlord) setupNotification(config map[string]configuration.Notification) {
-	for key, params := range config {
+// setupBroadcaster inicializa el broadcaster de Notificaciones
+func (o *Overlord) setupBroadcaster(config configuration.Notification) {
+	broadcaster := report.NewBroadcaster()
+	var notifications []notification.Notification
+	for key, params := range config.Providers {
 		if params.Disabled {
 			util.Log.Warnf("El notificador no esta habilitado: %s", key)
 			continue
@@ -77,11 +63,15 @@ func (o *Overlord) setupNotification(config map[string]configuration.Notificatio
 		}
 
 		util.Log.Infof("Se creo nuevo notificador %s de tipo %s", key, params.NotificationType)
-		o.notifications[key] = notification
+		notifications = append(notifications, notification)
+		util.Log.Infof("Registrando el notificador %s en broadcaster", key)
+		if err := broadcaster.Register(notification); err != nil {
+			util.Log.Fatalf("No se pudo registrar el notificador en el broadcaster: %s", err.Error())
+		}
 	}
 
-	if len(o.notifications) == 0 {
-		util.Log.Infoln("No hay notificadores configurados")
+	if len(notifications) == 0 {
+		util.Log.Warnln("No hay notificadores configurados")
 	}
 }
 
@@ -90,8 +80,13 @@ func (o *Overlord) setupClusters(config map[string]configuration.Cluster) {
 	for key, _ := range config {
 		c, err := cluster.NewCluster(key, config[key])
 		if err != nil {
-			util.Log.Warnln(err.Error())
-			continue
+			switch err.(type) {
+			case *cluster.ClusterDisabled:
+				util.Log.Warnln(err.Error())
+				continue
+			default:
+				util.Log.Fatalln(err.Error())
+			}
 		}
 
 		o.clusters[key] = c

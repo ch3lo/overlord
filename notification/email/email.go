@@ -3,6 +3,7 @@ package email
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 
 	"github.com/ch3lo/overlord/notification"
 	"github.com/ch3lo/overlord/notification/factory"
@@ -73,6 +74,11 @@ func (n *EmailNotification) Id() string {
 	return n.id
 }
 
-func (n *EmailNotification) Notify() {
+func (n *EmailNotification) Notify() error {
 	util.Log.Infoln("Notificando via email")
+	if rand.Int()%2 == 0 {
+		util.Log.Errorln("Error en notificacion")
+		return errors.New("Random gatillo error de email")
+	}
+	return errors.New("ERrro forzado")
 }

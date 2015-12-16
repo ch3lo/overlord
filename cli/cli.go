@@ -22,7 +22,7 @@ func globalFlags() []cli.Flag {
 	flags := []cli.Flag{
 		cli.BoolFlag{
 			Name:  "debug",
-			Usage: "Modo de verbosidad debug",
+			Usage: "Debug de la app",
 		},
 		cli.StringFlag{
 			Name:   "log-level",

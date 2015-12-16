@@ -58,34 +58,38 @@ var configStruct = Configuration{
 			},
 		},
 	},
-	Notifications: map[string]Notification{
-		"email-id": {
-			Disabled:         false,
-			NotificationType: "email",
-			Config: Parameters{
-				"from":     "overlord@overlord.com",
-				"subject":  "[Notification] bla",
-				"smtp":     "smtp.overlord.com",
-				"user":     "user",
-				"password": "password",
+	Notification: Notification{
+		AttemptsOnError:   5,
+		WaitSecondsOnFail: 10 * time.Second,
+		Providers: map[string]NotificationProvider{
+			"email-id": {
+				Disabled:         false,
+				NotificationType: "email",
+				Config: Parameters{
+					"from":     "overlord@overlord.com",
+					"subject":  "[Notification] bla",
+					"smtp":     "smtp.overlord.com",
+					"user":     "user",
+					"password": "password",
+				},
 			},
-		},
-		"email-id2": {
-			NotificationType: "email",
-			Config: Parameters{
-				"from":     "overlord@overlord.com",
-				"subject":  "[Notification] bla",
-				"smtp":     "smtp.overlord.com",
-				"user":     "user",
-				"password": "password",
+			"email-id2": {
+				NotificationType: "email",
+				Config: Parameters{
+					"from":     "overlord@overlord.com",
+					"subject":  "[Notification] bla",
+					"smtp":     "smtp.overlord.com",
+					"user":     "user",
+					"password": "password",
+				},
 			},
-		},
-		"rundeck-id": {
-			NotificationType: "rundeck",
-			Config: Parameters{
-				"endpoint": "http://rundeck.com",
-				"token":    "qwerty123",
-				"job":      "asd321",
+			"rundeck-id": {
+				NotificationType: "rundeck",
+				Config: Parameters{
+					"endpoint": "http://rundeck.com",
+					"token":    "qwerty123",
+					"job":      "asd321",
+				},
 			},
 		},
 	},
@@ -125,30 +129,33 @@ cluster:
         tlscacert: ca-marathon.pem
         tlscert: cert-marathon.pem
         tlskey: key-marathon.pem
-notifications:
-  email-id:
-    disabled: false
-    type: email
-    config:
-      from: overlord@overlord.com
-      subject: "[Notification] bla"
-      smtp: smtp.overlord.com
-      user: user
-      password: password
-  email-id2:
-    type: email
-    config:
-      from: overlord@overlord.com
-      subject: "[Notification] bla"
-      smtp: smtp.overlord.com
-      user: user
-      password: password
-  rundeck-id:
-    type: rundeck
-    config:
-      endpoint: http://rundeck.com
-      token: qwerty123
-      job: asd321
+notification:
+  attempts_on_error: 5
+  wait_seconds_on_fail: 10s 
+  providers:
+    email-id:
+      disabled: false
+      type: email
+      config:
+        from: overlord@overlord.com
+        subject: "[Notification] bla"
+        smtp: smtp.overlord.com
+        user: user
+        password: password
+    email-id2:
+      type: email
+      config:
+        from: overlord@overlord.com
+        subject: "[Notification] bla"
+        smtp: smtp.overlord.com
+        user: user
+        password: password
+    rundeck-id:
+      type: rundeck
+      config:
+        endpoint: http://rundeck.com
+        token: qwerty123
+        job: asd321
 `
 
 type ConfigSuite struct {

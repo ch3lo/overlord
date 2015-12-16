@@ -42,13 +42,19 @@ type Manager struct {
 }
 
 type Configuration struct {
-	Updater       Updater                 `yaml:"updater,omitempty"`
-	Manager       Manager                 `yaml:"manager,omitempty"`
-	Clusters      map[string]Cluster      `yaml:"cluster"`
-	Notifications map[string]Notification `yaml:"notifications,omitempty"`
+	Updater      Updater            `yaml:"updater,omitempty"`
+	Manager      Manager            `yaml:"manager,omitempty"`
+	Clusters     map[string]Cluster `yaml:"cluster"`
+	Notification Notification       `yaml:"notification,omitempty"`
 }
 
 type Notification struct {
+	AttemptsOnError   int                             `yaml:"attempts_on_error,omitempty"`
+	WaitSecondsOnFail time.Duration                   `yaml:"wait_seconds_on_fail,omitempty"`
+	Providers         map[string]NotificationProvider `yaml:"providers,omitempty"`
+}
+
+type NotificationProvider struct {
 	Disabled         bool       `yaml:"disabled,omitempty"`
 	NotificationType string     `yaml:"type,omitempty"`
 	Config           Parameters `yaml:"config,omitempty"`
