@@ -20,9 +20,9 @@ func GetServices(c *gin.Context) {
 			var instances []types.Instance
 			for _, instance := range v.GetInstances() {
 				instances = append(instances, types.Instance{
-					Id:           instance.Id,
+					Id:           instance.ID,
 					CreationDate: &instance.CreationDate,
-					Cluster:      instance.ClusterId,
+					Cluster:      instance.ClusterID,
 				})
 			}
 
@@ -65,8 +65,8 @@ func PutService(c *gin.Context) {
 			clusterCheck[k] = v.Instaces
 		}
 
-		params := service.ServiceParameters{
-			Id:                     bindedService.Id,
+		params := service.Parameters{
+			ID:                     bindedService.Id,
 			Version:                v.Version,
 			ImageName:              v.ImageName,
 			ImageTag:               v.ImageTag,
@@ -78,7 +78,7 @@ func PutService(c *gin.Context) {
 
 			var newErr CustomStatusAndMessageError
 			switch err.(type) {
-			case *service.ServiceManagerAlreadyExist:
+			case *service.AlreadyExist:
 				newErr = &ElementAlreadyExists{}
 				break
 			case *service.ImageNameRegexpError:

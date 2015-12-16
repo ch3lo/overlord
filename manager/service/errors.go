@@ -2,22 +2,22 @@ package service
 
 import "fmt"
 
-// ServiceAlreadyExist sucede cuando se esta agregando un servicio que ya existe
-type ServiceAlreadyExist struct {
+// AlreadyExist sucede cuando se esta agregando un servicio que ya existe
+type AlreadyExist struct {
 	Name string
 }
 
-func (err ServiceAlreadyExist) Error() string {
+func (err AlreadyExist) Error() string {
 	return fmt.Sprintf("El servicio ya existe: %s", err.Name)
 }
 
-// ServiceManagerAlreadyExist sucede cuando se esta agregando un manager de servicio que ya existe
-type ServiceManagerAlreadyExist struct {
+// ManagerAlreadyExist sucede cuando se esta agregando un manager de servicio que ya existe
+type ManagerAlreadyExist struct {
 	Service string
 	Version string
 }
 
-func (err ServiceManagerAlreadyExist) Error() string {
+func (err ManagerAlreadyExist) Error() string {
 	return fmt.Sprintf("El manager %s del servicio %s ya existe", err.Version, err.Service)
 }
 

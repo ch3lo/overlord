@@ -26,10 +26,10 @@ func NewBroadcaster() *Broadcaster {
 }
 
 func (b *Broadcaster) Register(n notification.Notification) error {
-	if _, ok := b.workers[n.Id()]; ok {
-		return &BroadcastWorkerAlreadyExist{Name: n.Id()}
+	if _, ok := b.workers[n.ID()]; ok {
+		return &BroadcastWorkerAlreadyExist{Name: n.ID()}
 	}
-	b.workers[n.Id()] = BroadcastWorker{notification: n}
+	b.workers[n.ID()] = BroadcastWorker{notification: n}
 	return nil
 }
 
@@ -56,8 +56,8 @@ type BroadcastWorker struct {
 	quitChan     chan bool
 }
 
-func (w BroadcastWorker) Id() string {
-	return w.notification.Id()
+func (w BroadcastWorker) ID() string {
+	return w.notification.ID()
 }
 
 func (w BroadcastWorker) Notify() error {

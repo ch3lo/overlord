@@ -1,32 +1,34 @@
 package email
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"math/rand"
+	"net/smtp"
 
 	"github.com/ch3lo/overlord/notification"
 	"github.com/ch3lo/overlord/notification/factory"
 	"github.com/ch3lo/overlord/util"
 )
 
-const notificationId = "email"
+const notificationID = "email"
 
 func init() {
-	factory.Register(notificationId, &emailCreator{})
+	factory.Register(notificationID, &emailCreator{})
 }
 
 // emailCreator implementa la interfaz factory.NotificationFactory
 type emailCreator struct{}
 
-func (factory *emailCreator) Create(id string, parameters map[string]interface{}) (notification.Notification, error) {
-	return NewFromParameters(id, parameters)
+func (factory *emailCreator) Create(id string, params map[string]interface{}) (notification.Notification, error) {
+	return NewFromParameters(id, params)
 }
 
 // EmailParameters encapsula los parametros de configuracion de Email
-type EmailParameters struct {
+type parameters struct {
 	id       string
 	from     string
+	to       string
 	subject  string
 	smtp     string
 	user     string
@@ -34,51 +36,92 @@ type EmailParameters struct {
 }
 
 // NewFromParameters construye un EmailNotification a partir de un mapeo de parámetros
-func NewFromParameters(id string, parameters map[string]interface{}) (*EmailNotification, error) {
+func NewFromParameters(id string, params map[string]interface{}) (*Notification, error) {
 
-	smtp, ok := parameters["smtp"]
+	smtp, ok := params["smtp"]
 	if !ok || fmt.Sprint(smtp) == "" {
 		return nil, errors.New("Parametro smtp no existe")
 	}
 
-	subject := ""
-	if subjectTmp, ok := parameters["subject"]; ok {
-		subject = fmt.Sprint(subjectTmp)
+	from, ok := params["from"]
+	if !ok || fmt.Sprint(from) == "" {
+		return nil, errors.New("Parametro de origen (from) no existe")
 	}
 
-	params := EmailParameters{
-		id:      id,
-		smtp:    fmt.Sprint(smtp),
-		subject: subject,
+	to, ok := params["to"]
+	if !ok || fmt.Sprint(to) == "" {
+		return nil, errors.New("Parametro de destinatario (to) no existe")
 	}
-	return New(params)
+
+	// TODO implementacion con autenticacion y subject
+	/*
+		subject := ""
+		if subjectTmp, ok := parameters["subject"]; ok {
+			subject = fmt.Sprint(subjectTmp)
+		}*/
+
+	p := parameters{
+		id:   id,
+		smtp: fmt.Sprint(smtp),
+		from: fmt.Sprint(from),
+		to:   fmt.Sprint(to),
+	}
+	return New(p)
 }
 
 // New construye un nuevo EmailNotification
-func New(params EmailParameters) (*EmailNotification, error) {
+func New(params parameters) (*Notification, error) {
 
-	email := &EmailNotification{
-		id: params.id,
+	email := &Notification{
+		id:      params.id,
+		address: params.smtp,
+		from:    params.from,
+		to:      params.to,
 	}
 
 	return email, nil
 }
 
-// EmailNotification es una implementacion de notification.Notification
+// Notification es una implementacion de notification.Notification
 // Permite la comunicacion via email
-type EmailNotification struct {
-	id string
+type Notification struct {
+	id      string
+	address string
+	from    string
+	to      string
 }
 
-func (n *EmailNotification) Id() string {
+// ID retorna el identificador de este notificador
+func (n *Notification) ID() string {
 	return n.id
 }
 
-func (n *EmailNotification) Notify() error {
+// Notify notifica via email al destinatario
+func (n *Notification) Notify() error {
 	util.Log.Infoln("Notificando via email")
-	if rand.Int()%2 == 0 {
-		util.Log.Errorln("Error en notificacion")
-		return errors.New("Random gatillo error de email")
+
+	// Connect to the remote SMTP server.
+	c, err := smtp.Dial(n.address)
+	if err != nil {
+		return err
 	}
-	return errors.New("ERrro forzado")
+	defer c.Close()
+
+	// Set the sender and recipient.
+	c.Mail(n.from)
+	c.Rcpt(n.to)
+
+	// Send the email body.
+	wc, err := c.Data()
+	if err != nil {
+		return err
+	}
+	defer wc.Close()
+
+	buf := bytes.NewBufferString("This is the email body.")
+	if _, err = buf.WriteTo(wc); err != nil {
+		return err
+	}
+
+	return nil
 }

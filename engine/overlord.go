@@ -26,14 +26,14 @@ type Overlord struct {
 	serviceUpdater     *monitor.ServiceUpdater
 	broadcaster        report.Broadcast
 	clusters           map[string]*cluster.Cluster
-	serviceGroupMapper map[string]*service.ServiceGroup
+	serviceGroupMapper map[string]*service.Group
 }
 
 func NewApp(config *configuration.Configuration) {
 	app := &Overlord{
 		config:             config,
 		clusters:           make(map[string]*cluster.Cluster),
-		serviceGroupMapper: make(map[string]*service.ServiceGroup),
+		serviceGroupMapper: make(map[string]*service.Group),
 	}
 
 	app.setupBroadcaster(config.Notification)
@@ -80,7 +80,7 @@ func (o *Overlord) setupBroadcaster(config configuration.Notification) {
 
 // setupClusters inicia el cluster, mapeando el cluster el id del cluster como key
 func (o *Overlord) setupClusters(config map[string]configuration.Cluster) {
-	for key, _ := range config {
+	for key := range config {
 		c, err := cluster.NewCluster(key, config[key])
 		if err != nil {
 			switch err.(type) {
@@ -120,7 +120,7 @@ func (o *Overlord) clusterIds() []string {
 // Si el contenedor ya existia se omite su creación y se procede a registrar
 // las versiones de los servicios.
 // Si no se puede registrar una nueva version se retornara un error.
-func (o *Overlord) RegisterService(params service.ServiceParameters) (*service.ServiceManager, error) {
+func (o *Overlord) RegisterService(params service.Parameters) (*service.Manager, error) {
 	o.serviceMux.Lock()
 	defer o.serviceMux.Unlock()
 
@@ -137,19 +137,19 @@ func (o *Overlord) RegisterService(params service.ServiceParameters) (*service.S
 	return sm, nil
 }
 
-func (o *Overlord) RegisterGroup(params service.ServiceParameters) *service.ServiceGroup {
-	var group *service.ServiceGroup
+func (o *Overlord) RegisterGroup(params service.Parameters) *service.Group {
+	var group *service.Group
 	var ok bool
-	if group, ok = o.serviceGroupMapper[params.Id]; ok {
-		group = o.serviceGroupMapper[params.Id]
+	if group, ok = o.serviceGroupMapper[params.ID]; ok {
+		group = o.serviceGroupMapper[params.ID]
 	} else {
-		group = service.NewServiceGroup(params.Id)
-		o.serviceGroupMapper[params.Id] = group
+		group = service.NewServiceGroup(params.ID)
+		o.serviceGroupMapper[params.ID] = group
 	}
 	return group
 }
 
-func (o *Overlord) GetServices() map[string]*service.ServiceGroup {
+func (o *Overlord) GetServices() map[string]*service.Group {
 	return o.serviceGroupMapper
 }
 

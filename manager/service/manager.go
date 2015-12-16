@@ -18,9 +18,9 @@ type serviceStatus struct {
 	consecutiveFails int
 }
 
-// ServiceManager es una estructura que contiene la información de una
+// Manager es una estructura que contiene la información de una
 // version de un servicio.
-type ServiceManager struct {
+type Manager struct {
 	updateInstancesMux sync.Mutex
 	quitCheck          chan bool
 	Version            string
@@ -28,14 +28,19 @@ type ServiceManager struct {
 	ImageName          string
 	ImageTag           string
 	interval           time.Duration
-	instances          map[string]*ServiceInstance
+	instances          map[string]*Instance
 	broadcaster        report.Broadcast
 	threshold          int // limite de checks antes de marcar el servicio como fallido
 	status             serviceStatus
 	checkStatus        Checker
 }
 
-func NewServiceManager(clusterNames []string, checkConfig configuration.Check, broadcaster report.Broadcast, params ServiceParameters) (*ServiceManager, error) {
+// NewServiceManager instancia un nuevo Manager
+// Una vez creado un manager si la configuracion basica de este no permite crear una
+// expresion regular valida para la busqueda de las imagenes asociadas (necesario para subscribirse en el updater)
+// se retornara un error ImageNameRegexpError
+// Si se pudo instancias bien el Manager se comenzará el chequeo de los servicios
+func NewServiceManager(clusterNames []string, checkConfig configuration.Check, broadcaster report.Broadcast, params Parameters) (*Manager, error) {
 	interval := time.Second * 10
 	if checkConfig.Interval != 0 {
 		interval = checkConfig.Interval
@@ -46,7 +51,7 @@ func NewServiceManager(clusterNames []string, checkConfig configuration.Check, b
 		threshold = checkConfig.Threshold
 	}
 
-	sm := &ServiceManager{
+	sm := &Manager{
 		quitCheck:    make(chan bool),
 		Version:      params.Version,
 		CreationDate: time.Now(),
@@ -54,7 +59,7 @@ func NewServiceManager(clusterNames []string, checkConfig configuration.Check, b
 		ImageTag:     params.ImageTag,
 		interval:     interval,
 		threshold:    threshold,
-		instances:    make(map[string]*ServiceInstance),
+		instances:    make(map[string]*Instance),
 		broadcaster:  broadcaster,
 		status:       serviceStatus{},
 	}
@@ -69,7 +74,7 @@ func NewServiceManager(clusterNames []string, checkConfig configuration.Check, b
 	return sm, nil
 }
 
-func (s *ServiceManager) buildChecker(clusterNames []string, params ServiceParameters) Checker {
+func (s *Manager) buildChecker(clusterNames []string, params Parameters) Checker {
 	minInstances := make(map[string]int)
 	for _, clusterName := range clusterNames {
 		minInstances[clusterName] = params.MinInstancesPerCluster[clusterName]
@@ -79,7 +84,9 @@ func (s *ServiceManager) buildChecker(clusterNames []string, params ServiceParam
 	return minInstancesChecker
 }
 
-func (s *ServiceManager) FullImageName() string {
+// FullImageName obtiene el nombre completo de la imagen de este manager
+// Si el el tag no existe se le concatenara como sufijo el tag por defecto "latest"
+func (s *Manager) FullImageName() string {
 	fullName := s.ImageName + ":"
 	tag := "latest"
 	if s.ImageTag != "" {
@@ -88,30 +95,37 @@ func (s *ServiceManager) FullImageName() string {
 	return fullName + tag
 }
 
-func (s *ServiceManager) FullImageNameRegexp() (*regexp.Regexp, error) {
+// FullImageNameRegexp construye y retorna la expresion regular necesaria para
+// buscar todas las imagenes que pertenecen a este manager.
+// Si la expresion regular generada es invalida se retornara un error
+func (s *Manager) FullImageNameRegexp() (*regexp.Regexp, error) {
 	fullName := s.FullImageName()
 	return regexp.Compile("^" + fullName)
 }
 
-func (s *ServiceManager) Id() string {
+// ID retorna el identificador del manager el cual es:
+// version:<nombre full de la imagen>
+// Implementa ServiceUpdaterSubscriber
+func (s *Manager) ID() string {
 	return s.Version + ":" + s.FullImageName()
 }
 
-func (s *ServiceManager) Update(data map[string]*monitor.ServiceUpdaterData) {
+// Update implementa ServiceUpdaterSubscriber para recibir notificaciones
+func (s *Manager) Update(data map[string]*monitor.ServiceUpdaterData) {
 	s.updateInstancesMux.Lock()
 	defer s.updateInstancesMux.Unlock()
 
 	for k, v := range data {
-		if v.InStatus(monitor.SERVICE_REMOVED) {
+		if v.InStatus(monitor.ServiceRemoved) {
 			delete(s.instances, k)
 		} else {
 			instance := s.instances[k]
 			if instance == nil {
-				instance = &ServiceInstance{
-					Id:           v.Origin().ID,
+				instance = &Instance{
+					ID:           v.Origin().ID,
 					CreationDate: time.Now(),
 					Healthy:      v.Origin().Healthy(),
-					ClusterId:    v.ClusterId(),
+					ClusterID:    v.ClusterID(),
 					ImageName:    v.Origin().ImageName,
 					ImageTag:     v.Origin().ImageTag,
 				}
@@ -120,29 +134,32 @@ func (s *ServiceManager) Update(data map[string]*monitor.ServiceUpdaterData) {
 			}
 			s.instances[k] = instance
 			util.Log.WithFields(log.Fields{
-				"manager_id": s.Id(),
+				"manager_id": s.ID(),
 			}).Debugf("Servicio %s con data: %+v", v.LastAction(), instance)
 		}
 	}
 }
 
-func (s *ServiceManager) GetInstances() map[string]*ServiceInstance {
+// GetInstances retorna todas las instancias manejadas por este manager
+func (s *Manager) GetInstances() map[string]*Instance {
 	return s.instances
 }
 
-func (s *ServiceManager) StartCheck() {
-	util.Log.WithField("manager_id", s.Id()).Infoln("Comenzando check")
+// StartCheck comienza el chequeo de los servicios
+func (s *Manager) StartCheck() {
+	util.Log.WithField("manager_id", s.ID()).Infoln("Comenzando check")
 	go s.checkInstances()
 }
 
-func (s *ServiceManager) StopCheck() {
-	util.Log.WithField("manager_id", s.Id()).Infoln("Deteniendo check")
+// StopCheck detiene el chequeo de los servicios
+func (s *Manager) StopCheck() {
+	util.Log.WithField("manager_id", s.ID()).Infoln("Deteniendo check")
 	s.quitCheck <- true
 	<-s.quitCheck
-	util.Log.WithField("manager_id", s.Id()).Infoln("Check detenido")
+	util.Log.WithField("manager_id", s.ID()).Infoln("Check detenido")
 }
 
-func (s *ServiceManager) check() {
+func (s *Manager) check() {
 	if s.checkStatus.Ok(s) {
 		s.status.consecutiveFails++
 		s.status.failed++
@@ -151,18 +168,18 @@ func (s *ServiceManager) check() {
 		s.status.success++
 	}
 
-	util.Log.WithField("manager_id", s.Id()).Debugf("Status del chequeo %+v - threshold %d", s.status, s.threshold)
+	util.Log.WithField("manager_id", s.ID()).Debugf("Status del chequeo %+v - threshold %d", s.status, s.threshold)
 
 	if s.threshold == s.status.consecutiveFails {
 		s.broadcaster.Broadcast()
 	}
 }
 
-func (s *ServiceManager) checkInstances() {
+func (s *Manager) checkInstances() {
 	for {
 		select {
 		case <-s.quitCheck:
-			util.Log.WithField("manager_id", s.Id()).Infoln("Finalizando check")
+			util.Log.WithField("manager_id", s.ID()).Infoln("Finalizando check")
 			s.quitCheck <- true
 			return
 		case <-time.After(s.interval):

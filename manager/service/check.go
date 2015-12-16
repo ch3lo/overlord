@@ -6,12 +6,12 @@ import (
 
 type Checker interface {
 	id() string
-	check(manager *ServiceManager) bool
-	Ok(manager *ServiceManager) bool
+	check(manager *Manager) bool
+	Ok(manager *Manager) bool
 	next() Checker
 }
 
-func checkHandler(c Checker, manager *ServiceManager) bool {
+func checkHandler(c Checker, manager *Manager) bool {
 	util.Log.Infoln("Checking", c.id())
 	if c.check(manager) {
 		if c.next() != nil {
@@ -38,17 +38,17 @@ func (c *MultiTagsChecker) next() Checker {
 	return c.nextChecker
 }
 
-func (c *MultiTagsChecker) Ok(manager *ServiceManager) bool {
+func (c *MultiTagsChecker) Ok(manager *Manager) bool {
 	return checkHandler(c, manager)
 }
 
-func (c *MultiTagsChecker) check(manager *ServiceManager) bool {
+func (c *MultiTagsChecker) check(manager *Manager) bool {
 	tags := make(map[string]bool)
 	for _, v := range manager.instances {
 		tags[v.ImageTag] = true
 	}
 
-	util.Log.WithField("manager_id", manager.Id()).Debugf("Version %s Has multitags %t", manager.Version, len(tags) > 1)
+	util.Log.WithField("manager_id", manager.ID()).Debugf("Version %s Has multitags %t", manager.Version, len(tags) > 1)
 
 	return len(tags) > 1
 }
@@ -70,21 +70,21 @@ func (c *MinInstancesCheck) next() Checker {
 	return c.nextChecker
 }
 
-func (c *MinInstancesCheck) Ok(manager *ServiceManager) bool {
+func (c *MinInstancesCheck) Ok(manager *Manager) bool {
 	return checkHandler(c, manager)
 }
 
-func (s *MinInstancesCheck) check(manager *ServiceManager) bool {
+func (s *MinInstancesCheck) check(manager *Manager) bool {
 	instancesPerCluster := make(map[string]int)
 	for _, v := range manager.instances {
 		if v.Healthy {
-			instancesPerCluster[v.ClusterId]++
+			instancesPerCluster[v.ClusterID]++
 		}
 	}
 
 	for clusterId, minInstances := range s.MinInstancesPerCluster {
 		if instancesPerCluster[clusterId] < minInstances {
-			util.Log.WithField("manager_id", manager.Id()).Errorf("No hay un minimo de instancias para el cluster %s servicio %v", clusterId, manager)
+			util.Log.WithField("manager_id", manager.ID()).Errorf("No hay un minimo de instancias para el cluster %s servicio %v", clusterId, manager)
 			return false
 		}
 	}

@@ -7,19 +7,19 @@ import (
 	"github.com/ch3lo/overlord/manager/report"
 )
 
-// ServiceGroup agrupa un conjuntos de versiones de un servicios
-type ServiceGroup struct {
+// Group agrupa un conjuntos de versiones de un servicios
+type Group struct {
 	ID           string
 	CreationDate time.Time
-	Managers     map[string]*ServiceManager
+	Managers     map[string]*Manager
 }
 
 // NewServiceGroup crea un nuevo contenedor de servicios con la fecha actual
-func NewServiceGroup(id string) *ServiceGroup {
-	container := &ServiceGroup{
+func NewServiceGroup(id string) *Group {
+	container := &Group{
 		ID:           id,
 		CreationDate: time.Now(),
-		Managers:     make(map[string]*ServiceManager),
+		Managers:     make(map[string]*Manager),
 	}
 
 	return container
@@ -27,14 +27,14 @@ func NewServiceGroup(id string) *ServiceGroup {
 
 // RegisterServiceManager registra una nuevo manejador de servicios
 // Si el manager ya existia se retornara un error ServiceManagerAlreadyExist
-func (s *ServiceGroup) RegisterServiceManager(clusterNames []string, checkConfig configuration.Check, broadcaster report.Broadcast, params ServiceParameters) (*ServiceManager, error) {
+func (s *Group) RegisterServiceManager(clusterNames []string, checkConfig configuration.Check, broadcaster report.Broadcast, params Parameters) (*Manager, error) {
 	sm, err := NewServiceManager(clusterNames, checkConfig, broadcaster, params)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, ok := s.Managers[sm.Id()]; ok {
-		return nil, &ServiceManagerAlreadyExist{Service: s.ID, Version: params.Version}
+	if _, ok := s.Managers[sm.ID()]; ok {
+		return nil, &ManagerAlreadyExist{Service: s.ID, Version: params.Version}
 	}
 
 	sm.StartCheck()
