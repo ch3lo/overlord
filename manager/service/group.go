@@ -9,7 +9,7 @@ import (
 
 // ServiceGroup agrupa un conjuntos de versiones de un servicios
 type ServiceGroup struct {
-	Id           string
+	ID           string
 	CreationDate time.Time
 	Managers     map[string]*ServiceManager
 }
@@ -17,7 +17,7 @@ type ServiceGroup struct {
 // NewServiceGroup crea un nuevo contenedor de servicios con la fecha actual
 func NewServiceGroup(id string) *ServiceGroup {
 	container := &ServiceGroup{
-		Id:           id,
+		ID:           id,
 		CreationDate: time.Now(),
 		Managers:     make(map[string]*ServiceManager),
 	}
@@ -34,7 +34,7 @@ func (s *ServiceGroup) RegisterServiceManager(clusterNames []string, checkConfig
 	}
 
 	if _, ok := s.Managers[sm.Id()]; ok {
-		return nil, &ServiceManagerAlreadyExist{Service: s.Id, Version: params.Version}
+		return nil, &ServiceManagerAlreadyExist{Service: s.ID, Version: params.Version}
 	}
 
 	sm.StartCheck()

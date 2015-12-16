@@ -35,7 +35,7 @@ func GetServices(c *gin.Context) {
 			})
 		}
 		apiServices = append(apiServices, types.ServiceGroup{
-			Id:           srv.Id,
+			Id:           srv.ID,
 			CreationDate: &srv.CreationDate,
 			Managers:     apiVersions,
 		})

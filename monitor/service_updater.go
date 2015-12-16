@@ -147,11 +147,11 @@ func (su *ServiceUpdater) detachedMonitor() {
 
 		for clusterKey, c := range su.clusters {
 			util.Log.WithField("cluster", clusterKey).Infof("Monitoreando cluster")
-			srvs, err := c.GetScheduler().GetInstances(scheduler.FilterInstances{})
+			srvs, err := c.GetScheduler().Instances(scheduler.FilterInstances{})
 			if err != nil {
 				util.Log.WithFields(log.Fields{
 					"cluster":   clusterKey,
-					"scheduler": c.GetScheduler().Id(),
+					"scheduler": c.GetScheduler().ID(),
 				}).Errorf("No se pudieron obtener instancias del cluster. Motivo: %s", err.Error())
 				continue
 			}
@@ -191,29 +191,29 @@ func (su *ServiceUpdater) checkClusterServices(clusterId string, clusterServices
 	}
 
 	for k, v := range clusterServices {
-		if su.services[v.Id] == nil {
+		if su.services[v.ID] == nil {
 			newService := NewServiceUpdaterData()
 			newService.clusterId = clusterId
 			newService.origin = clusterServices[k]
 
-			su.services[v.Id] = newService
-			updatedServices[v.Id] = newService
+			su.services[v.ID] = newService
+			updatedServices[v.ID] = newService
 
 			util.Log.WithField("cluster", clusterId).Debugf("Monitoreando nuevo servicio %+v", newService)
 			continue
 		}
 
-		su.services[v.Id].lastUpdate = time.Now()
-		su.services[v.Id].lastAction = SERVICE_UPDATED
+		su.services[v.ID].lastUpdate = time.Now()
+		su.services[v.ID].lastAction = SERVICE_UPDATED
 
-		if reflect.DeepEqual(su.services[v.Id].origin, clusterServices[k]) {
-			delete(updatedServices, v.Id)
+		if reflect.DeepEqual(su.services[v.ID].origin, clusterServices[k]) {
+			delete(updatedServices, v.ID)
 			util.Log.WithField("cluster", clusterId).Debugf("Servicio sin cambios %+v", clusterServices[k])
 			continue
 		}
 
-		su.services[v.Id].origin = clusterServices[k]
-		util.Log.WithField("cluster", clusterId).Debugf("Servicio tuvo un cambio %+v <-> %+v", su.services[v.Id].Origin(), clusterServices[k])
+		su.services[v.ID].origin = clusterServices[k]
+		util.Log.WithField("cluster", clusterId).Debugf("Servicio tuvo un cambio %+v <-> %+v", su.services[v.ID].Origin(), clusterServices[k])
 	}
 
 	for k := range su.services {

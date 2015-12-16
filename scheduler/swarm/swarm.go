@@ -13,10 +13,10 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
-const schedulerId = "swarm"
+const schedulerID = "swarm"
 
 func init() {
-	factory.Register(schedulerId, &swarmCreator{})
+	factory.Register(schedulerID, &swarmCreator{})
 }
 
 // swarmCreator implementa la interfaz factory.SchedulerFactory
@@ -26,8 +26,8 @@ func (factory *swarmCreator) Create(parameters map[string]interface{}) (schedule
 	return NewFromParameters(parameters)
 }
 
-// SwarmParameters encapsula los parametros de configuracion de Swarm
-type SwarmParameters struct {
+// parameters encapsula los parametros de configuracion de Swarm
+type parameters struct {
 	address   string
 	tlsverify bool
 	tlscacert string
@@ -38,15 +38,15 @@ type SwarmParameters struct {
 // NewFromParameters construye un SwarmScheduler a partir de un mapeo de parámetros
 // Al menos se debe pasar como parametro address
 // Si se pasa tlsverify como true los parametros tlscacert, tlscert y tlskey también deben existir
-func NewFromParameters(parameters map[string]interface{}) (*SwarmScheduler, error) {
+func NewFromParameters(params map[string]interface{}) (*Scheduler, error) {
 
-	address, ok := parameters["address"]
+	address, ok := params["address"]
 	if !ok || fmt.Sprint(address) == "" {
 		return nil, errors.New("Parametro address no existe")
 	}
 
 	tlsverify := false
-	if tlsv, ok := parameters["tlsverify"]; ok {
+	if tlsv, ok := params["tlsverify"]; ok {
 		tlsverify, ok = tlsv.(bool)
 		if !ok {
 			return nil, fmt.Errorf("El parametro tlsverify debe ser un boolean")
@@ -58,23 +58,23 @@ func NewFromParameters(parameters map[string]interface{}) (*SwarmScheduler, erro
 	var tlskey interface{}
 
 	if tlsverify {
-		tlscacert, ok = parameters["tlscacert"]
+		tlscacert, ok = params["tlscacert"]
 		if !ok || fmt.Sprint(tlscacert) == "" {
 			return nil, errors.New("Parametro tlscacert no existe")
 		}
 
-		tlscert, ok = parameters["tlscert"]
+		tlscert, ok = params["tlscert"]
 		if !ok || fmt.Sprint(tlscert) == "" {
 			return nil, errors.New("Parametro tlscert no existe")
 		}
 
-		tlskey, ok = parameters["tlskey"]
+		tlskey, ok = params["tlskey"]
 		if !ok || fmt.Sprint(tlskey) == "" {
 			return nil, errors.New("Parametro tlskey no existe")
 		}
 	}
 
-	params := SwarmParameters{
+	p := parameters{
 		address:   fmt.Sprint(address),
 		tlsverify: tlsverify,
 		tlscacert: fmt.Sprint(tlscacert),
@@ -82,13 +82,13 @@ func NewFromParameters(parameters map[string]interface{}) (*SwarmScheduler, erro
 		tlskey:    fmt.Sprint(tlskey),
 	}
 
-	return New(params)
+	return New(p)
 }
 
 // New construye un nuevo SwarmScheduler
-func New(params SwarmParameters) (*SwarmScheduler, error) {
+func New(params parameters) (*Scheduler, error) {
 
-	swarm := new(SwarmScheduler)
+	swarm := new(Scheduler)
 	var err error
 	util.Log.Debugf("Configurando Swarm con los parametros %+v", params)
 	if params.tlsverify {
@@ -103,18 +103,20 @@ func New(params SwarmParameters) (*SwarmScheduler, error) {
 	return swarm, nil
 }
 
-// SwarmScheduler es una implementacion de scheduler.Scheduler
+// Scheduler es una implementacion de scheduler.Scheduler
 // Permite el la comunicación con la API de Swarm
-type SwarmScheduler struct {
+type Scheduler struct {
 	client *docker.Client
 	tmp    string
 }
 
-func (ss *SwarmScheduler) Id() string {
-	return schedulerId
+// ID retorna el identificador del scheduler
+func (ss *Scheduler) ID() string {
+	return schedulerID
 }
 
-func (ss *SwarmScheduler) IsAlive(id string) (bool, error) {
+// IsAlive retorna si el servicio se encuentra en estado OK
+func (ss *Scheduler) IsAlive(id string) (bool, error) {
 	container, err := ss.client.InspectContainer(id)
 	if err != nil {
 		return false, err
@@ -122,7 +124,9 @@ func (ss *SwarmScheduler) IsAlive(id string) (bool, error) {
 	return container.State.Running && !container.State.Paused, nil
 }
 
-func (ss *SwarmScheduler) GetInstances(filter scheduler.FilterInstances) ([]scheduler.ServiceInformation, error) {
+// Instances retorna todas las instancias de que maneja el scheduler
+// filtrando aquellas que no son de interes
+func (ss *Scheduler) Instances(filter scheduler.FilterInstances) ([]scheduler.ServiceInformation, error) {
 	// TODO implementar el uso del filtro
 	containers, err := ss.client.ListContainers(docker.ListContainersOptions{})
 	if err != nil {
@@ -134,7 +138,7 @@ func (ss *SwarmScheduler) GetInstances(filter scheduler.FilterInstances) ([]sche
 
 	var instances []scheduler.ServiceInformation
 	for _, v := range containers {
-		util.Log.WithField("scheduler", schedulerId).Debugf("Procesing container %+v", v)
+		util.Log.WithField("scheduler", schedulerID).Debugf("Procesing container %+v", v)
 
 		result := imageAndTagRegexp.FindStringSubmatch(v.Image)
 		imageName := result[1]
@@ -143,13 +147,13 @@ func (ss *SwarmScheduler) GetInstances(filter scheduler.FilterInstances) ([]sche
 			imageTag = result[2]
 		}
 
-		status := scheduler.SERVICE_DOWN
+		status := scheduler.ServiceDown
 		if upRegexp.MatchString(v.Status) {
-			status = scheduler.SERVICE_UP
+			status = scheduler.ServiceUp
 		}
 
 		instances = append(instances, scheduler.ServiceInformation{
-			Id:         v.ID,
+			ID:         v.ID,
 			Status:     status,
 			FullStatus: v.Status,
 			ImageName:  imageName,

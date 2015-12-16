@@ -12,7 +12,7 @@ import (
 	"github.com/ch3lo/overlord/util"
 )
 
-type ServiceStatus struct {
+type serviceStatus struct {
 	success          int
 	failed           int
 	consecutiveFails int
@@ -32,7 +32,7 @@ type ServiceManager struct {
 	MinInstancesPerCluster map[string]int
 	broadcaster            report.Broadcast
 	threshold              int // limite de checks antes de marcar el servicio como fallido
-	status                 ServiceStatus
+	status                 serviceStatus
 }
 
 func NewServiceManager(clusterNames []string, checkConfig configuration.Check, broadcaster report.Broadcast, params ServiceParameters) (*ServiceManager, error) {
@@ -57,7 +57,7 @@ func NewServiceManager(clusterNames []string, checkConfig configuration.Check, b
 		instances:              make(map[string]*ServiceInstance),
 		MinInstancesPerCluster: make(map[string]int),
 		broadcaster:            broadcaster,
-		status:                 ServiceStatus{},
+		status:                 serviceStatus{},
 	}
 
 	_, err := sm.FullImageNameRegexp()
@@ -104,7 +104,7 @@ func (s *ServiceManager) Update(data map[string]*monitor.ServiceUpdaterData) {
 			instance = s.instances[k]
 			if instance == nil {
 				instance = &ServiceInstance{
-					Id:           v.Origin().Id,
+					Id:           v.Origin().ID,
 					CreationDate: time.Now(),
 					Healthy:      v.Origin().Healthy(),
 					ClusterId:    v.ClusterId(),
