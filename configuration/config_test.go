@@ -59,8 +59,9 @@ var configStruct = Configuration{
 		},
 	},
 	Notification: Notification{
-		AttemptsOnError:   5,
-		WaitSecondsOnFail: 10 * time.Second,
+		AttemptsOnError:  5,
+		WaitOnError:      10 * time.Second,
+		WaitAfterAttemts: 30 * time.Second,
 		Providers: map[string]NotificationProvider{
 			"email-id": {
 				Disabled:         false,
@@ -130,8 +131,9 @@ cluster:
         tlscert: cert-marathon.pem
         tlskey: key-marathon.pem
 notification:
-  attempts_on_error: 5
-  wait_seconds_on_fail: 10s 
+  attemptsOnError: 5
+  waitOnError: 10s
+  waitAfterAttemts: 30s 
   providers:
     email-id:
       disabled: false

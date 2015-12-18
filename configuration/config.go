@@ -49,9 +49,10 @@ type Configuration struct {
 }
 
 type Notification struct {
-	AttemptsOnError   int                             `yaml:"attempts_on_error,omitempty"`
-	WaitSecondsOnFail time.Duration                   `yaml:"wait_seconds_on_fail,omitempty"`
-	Providers         map[string]NotificationProvider `yaml:"providers,omitempty"`
+	AttemptsOnError  int                             `yaml:"attemptsOnError,omitempty"`
+	WaitOnError      time.Duration                   `yaml:"waitOnError,omitempty"`
+	WaitAfterAttemts time.Duration                   `yaml:"waitAfterAttemts,omitempty"`
+	Providers        map[string]NotificationProvider `yaml:"providers,omitempty"`
 }
 
 type NotificationProvider struct {

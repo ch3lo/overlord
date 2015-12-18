@@ -1,9 +1,24 @@
 package api
 
-import "github.com/gin-gonic/gin"
+import (
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/itsjamie/gin-cors"
+)
 
 func Routes() *gin.Engine {
 	router := gin.New()
+
+	router.Use(cors.Middleware(cors.Config{
+		Origins:         "*",
+		Methods:         "POST, GET, OPTIONS, PUT, DELETE, UPDATE",
+		RequestHeaders:  "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
+		ExposedHeaders:  "Content-Length",
+		MaxAge:          50 * time.Second,
+		Credentials:     true,
+		ValidateHeaders: false,
+	}))
 
 	// API v1
 	v1Services := router.Group("/api/v1/services")

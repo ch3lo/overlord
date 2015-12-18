@@ -14,6 +14,7 @@ import (
 	"github.com/ch3lo/overlord/util"
 	//Necesarios para que funcione el init()
 	_ "github.com/ch3lo/overlord/notification/email"
+	_ "github.com/ch3lo/overlord/notification/http"
 	_ "github.com/ch3lo/overlord/scheduler/marathon"
 	_ "github.com/ch3lo/overlord/scheduler/swarm"
 )
@@ -49,7 +50,7 @@ func GetAppInstance() *Overlord {
 
 // setupBroadcaster inicializa el broadcaster de Notificaciones
 func (o *Overlord) setupBroadcaster(config configuration.Notification) {
-	broadcaster := report.NewBroadcaster()
+	broadcaster := report.NewBroadcaster(config.AttemptsOnError, config.WaitOnError, config.WaitAfterAttemts)
 	var notifications []notification.Notification
 	for key, params := range config.Providers {
 		if params.Disabled {

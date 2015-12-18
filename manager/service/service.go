@@ -16,7 +16,7 @@ type Parameters struct {
 type Instance struct {
 	ID           string
 	CreationDate time.Time
-	Address      string
+	Host         string
 	Port         int
 	Healthy      bool
 	ClusterID    string

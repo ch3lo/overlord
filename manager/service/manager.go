@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"regexp"
 	"sync"
 	"time"
@@ -81,6 +82,8 @@ func (s *Manager) buildChecker(clusterNames []string, params Parameters) Checker
 	}
 
 	minInstancesChecker := &MinInstancesCheck{MinInstancesPerCluster: minInstances}
+	atLeastXHost := &AtLeastXHostCheck{MinHosts: 2}
+	minInstancesChecker.SetNext(atLeastXHost)
 	return minInstancesChecker
 }
 
@@ -161,17 +164,18 @@ func (s *Manager) StopCheck() {
 
 func (s *Manager) check() {
 	if s.checkStatus.Ok(s) {
-		s.status.consecutiveFails++
-		s.status.failed++
-	} else {
 		s.status.consecutiveFails = 0
 		s.status.success++
+	} else {
+		s.status.consecutiveFails++
+		s.status.failed++
 	}
 
 	util.Log.WithField("manager_id", s.ID()).Debugf("Status del chequeo %+v - threshold %d", s.status, s.threshold)
 
 	if s.threshold == s.status.consecutiveFails {
-		s.broadcaster.Broadcast()
+		var query = []byte(fmt.Sprintf("Status del chequeo %+v - threshold %d", s.status, s.threshold))
+		s.broadcaster.Broadcast(query)
 	}
 }
 

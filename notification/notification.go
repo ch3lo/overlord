@@ -4,5 +4,5 @@ package notification
 // Para un ejemplo ir a notification.Email
 type Notification interface {
 	ID() string
-	Notify() error
+	Notify(data []byte) error
 }

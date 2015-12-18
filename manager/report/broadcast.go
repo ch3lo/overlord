@@ -9,17 +9,35 @@ import (
 )
 
 type Broadcast interface {
-	Broadcast()
+	Broadcast(data []byte)
 	Register(n notification.Notification) error
 }
 
 type Broadcaster struct {
-	workers map[string]notification.Notification
+	attemptsOnError  int
+	waitOnError      time.Duration
+	waitAfterAttemts time.Duration
+	workers          map[string]notification.Notification
 }
 
-func NewBroadcaster() *Broadcaster {
+func NewBroadcaster(attemptsOnError int, waitOnError time.Duration, waitAfterAttemts time.Duration) *Broadcaster {
+	if attemptsOnError == 0 {
+		attemptsOnError = 5
+	}
+
+	if waitOnError == 0 {
+		waitOnError = 30 * time.Second
+	}
+
+	if waitAfterAttemts == 0 {
+		waitAfterAttemts = 60 * time.Second
+	}
+
 	b := &Broadcaster{
-		workers: make(map[string]notification.Notification),
+		attemptsOnError:  attemptsOnError,
+		waitOnError:      waitOnError,
+		waitAfterAttemts: waitAfterAttemts,
+		workers:          make(map[string]notification.Notification),
 	}
 
 	return b
@@ -29,13 +47,18 @@ func (b *Broadcaster) Register(n notification.Notification) error {
 	if _, ok := b.workers[n.ID()]; ok {
 		return &BroadcastWorkerAlreadyExist{Name: n.ID()}
 	}
-	b.workers[n.ID()] = BroadcastWorker{notification: n}
+	b.workers[n.ID()] = BroadcastWorker{
+		attemptsOnError:  b.attemptsOnError,
+		waitOnError:      b.waitOnError,
+		waitAfterAttemts: b.waitAfterAttemts,
+		notification:     n,
+	}
 	return nil
 }
 
-func (b *Broadcaster) Broadcast() {
+func (b *Broadcaster) Broadcast(data []byte) {
 	for _, v := range b.workers {
-		v.Notify()
+		v.Notify(data)
 	}
 }
 
@@ -51,16 +74,19 @@ type boradcastStatus struct {
 }
 
 type BroadcastWorker struct {
-	notification notification.Notification
-	status       boradcastStatus
-	quitChan     chan bool
+	attemptsOnError  int
+	waitOnError      time.Duration
+	waitAfterAttemts time.Duration
+	notification     notification.Notification
+	status           boradcastStatus
+	quitChan         chan bool
 }
 
 func (w BroadcastWorker) ID() string {
 	return w.notification.ID()
 }
 
-func (w BroadcastWorker) Notify() error {
+func (w BroadcastWorker) Notify(data []byte) error {
 	w.status.total++
 
 	go func() {
@@ -72,12 +98,16 @@ func (w BroadcastWorker) Notify() error {
 
 			default:
 				err := try.Do(func(attempt int) (bool, error) {
-					err := w.notification.Notify()
+					err := w.notification.Notify(data)
 					if err == nil {
 						return false, nil
 					}
 					w.status.errors++
-					return attempt < 5, err
+					retry := attempt < w.attemptsOnError
+					if retry {
+						time.Sleep(w.waitOnError)
+					}
+					return retry, err
 				})
 				if err == nil {
 					w.status.success++
@@ -85,7 +115,7 @@ func (w BroadcastWorker) Notify() error {
 				}
 				w.status.fail++
 				util.Log.Warnf("No se pudo notificar, se esperara un tiempo: %s", err.Error())
-				time.Sleep(10 * time.Second)
+				time.Sleep(w.waitAfterAttemts)
 			}
 		}
 	}()

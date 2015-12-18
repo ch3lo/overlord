@@ -22,11 +22,12 @@ func (s ServiceInformationStatus) String() string {
 // ServiceInformation define una estructura con la informacion basica de un servicio
 // Esta estructura sirve para la comunicacion con los consumidores de schedulers
 type ServiceInformation struct {
-	ID         string
-	ImageName  string
-	ImageTag   string
-	Status     ServiceInformationStatus
-	FullStatus string
+	ID            string
+	ImageName     string
+	ImageTag      string
+	Host          string
+	ContainerName string
+	Status        ServiceInformationStatus
 }
 
 // Healthy es una funcion que retorna si un servicio esta saludable o no

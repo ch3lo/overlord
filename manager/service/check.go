@@ -12,9 +12,10 @@ type Checker interface {
 }
 
 func checkHandler(c Checker, manager *Manager) bool {
-	util.Log.Infoln("Checking", c.id())
+	util.Log.Infoln("Handling Check", c.id())
 	if c.check(manager) {
 		if c.next() != nil {
+			util.Log.Infoln("Checking", c.next().id())
 			return c.next().check(manager)
 		}
 		return true
@@ -45,7 +46,9 @@ func (c *MultiTagsChecker) Ok(manager *Manager) bool {
 func (c *MultiTagsChecker) check(manager *Manager) bool {
 	tags := make(map[string]bool)
 	for _, v := range manager.instances {
-		tags[v.ImageTag] = true
+		if v.Healthy {
+			tags[v.ImageTag] = true
+		}
 	}
 
 	util.Log.WithField("manager_id", manager.ID()).Debugf("Version %s Has multitags %t", manager.Version, len(tags) > 1)
@@ -89,5 +92,46 @@ func (s *MinInstancesCheck) check(manager *Manager) bool {
 		}
 	}
 
+	return true
+}
+
+type AtLeastXHostCheck struct {
+	nextChecker Checker
+	MinHosts    int
+}
+
+func (s *AtLeastXHostCheck) id() string {
+	return "unique-host"
+}
+
+func (c *AtLeastXHostCheck) SetNext(next Checker) {
+	c.nextChecker = next
+}
+
+func (c *AtLeastXHostCheck) next() Checker {
+	return c.nextChecker
+}
+
+func (c *AtLeastXHostCheck) Ok(manager *Manager) bool {
+	return checkHandler(c, manager)
+}
+
+func (s *AtLeastXHostCheck) check(manager *Manager) bool {
+	hostsPerCluster := make(map[string]map[string]int)
+	for _, v := range manager.instances {
+		if v.Healthy {
+			if _, ok := hostsPerCluster[v.ClusterID]; !ok {
+				hostsPerCluster[v.ClusterID] = make(map[string]int)
+			}
+			hostsPerCluster[v.ClusterID][v.Host]++
+		}
+	}
+
+	for k, v := range hostsPerCluster {
+		if len(v) < s.MinHosts {
+			util.Log.WithField("manager_id", manager.ID()).Errorf("No hay un minimo de servidores en el cluster %s ejecutando el servicio %v", k, manager)
+			return false
+		}
+	}
 	return true
 }

@@ -128,13 +128,14 @@ func (ss *Scheduler) IsAlive(id string) (bool, error) {
 // filtrando aquellas que no son de interes
 func (ss *Scheduler) Instances(filter scheduler.FilterInstances) ([]scheduler.ServiceInformation, error) {
 	// TODO implementar el uso del filtro
-	containers, err := ss.client.ListContainers(docker.ListContainersOptions{})
+	containers, err := ss.client.ListContainers(docker.ListContainersOptions{All: true})
 	if err != nil {
 		return nil, err
 	}
 
 	upRegexp := regexp.MustCompile("^[u|U]p")
 	imageAndTagRegexp := regexp.MustCompile("^([\\w./_-]+)(?::([\\w._-]+))?$")
+	hostAndContainerName := regexp.MustCompile("^(?:/([\\w|_-]+))?/([\\w|_-]+)$")
 
 	var instances []scheduler.ServiceInformation
 	for _, v := range containers {
@@ -152,12 +153,20 @@ func (ss *Scheduler) Instances(filter scheduler.FilterInstances) ([]scheduler.Se
 			status = scheduler.ServiceUp
 		}
 
+		result = hostAndContainerName.FindStringSubmatch(v.Names[0])
+		host := "unknown"
+		if result[1] != "" {
+			host = result[1]
+		}
+		containerName := result[2]
+
 		instances = append(instances, scheduler.ServiceInformation{
-			ID:         v.ID,
-			Status:     status,
-			FullStatus: v.Status,
-			ImageName:  imageName,
-			ImageTag:   imageTag,
+			ID:            v.ID,
+			Status:        status,
+			ImageName:     imageName,
+			ImageTag:      imageTag,
+			Host:          host,
+			ContainerName: containerName,
 		})
 	}
 

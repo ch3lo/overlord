@@ -97,8 +97,9 @@ func (n *Notification) ID() string {
 }
 
 // Notify notifica via email al destinatario
-func (n *Notification) Notify() error {
+func (n *Notification) Notify(data []byte) error {
 	util.Log.Infoln("Notificando via email")
+	util.Log.Debugf("Data: %s", string(data))
 
 	// Connect to the remote SMTP server.
 	c, err := smtp.Dial(n.address)
@@ -118,7 +119,8 @@ func (n *Notification) Notify() error {
 	}
 	defer wc.Close()
 
-	buf := bytes.NewBufferString("This is the email body.")
+	buf := bytes.NewBuffer(data)
+	//buf := bytes.NewBufferString("This is the email body.")
 	if _, err = buf.WriteTo(wc); err != nil {
 		return err
 	}
