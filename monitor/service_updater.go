@@ -95,7 +95,7 @@ type ServiceUpdater struct {
 // Necesita de al menos un cluster, sino se detendrá la ejecucion con un Fatal
 func NewServiceUpdater(config configuration.Updater, clusters map[string]*cluster.Cluster) *ServiceUpdater {
 	if clusters == nil || len(clusters) == 0 {
-		util.Log.Fatalln("Al menos se debe monitorear un cluster")
+		util.Log.Panicln("Al menos se debe monitorear un cluster")
 	}
 
 	interval := time.Second * 10

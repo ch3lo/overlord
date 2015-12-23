@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"gopkg.in/yaml.v2"
 )
 
@@ -158,31 +159,32 @@ notification:
         job: asd321
 `
 
-func Test(t *testing.T) { check.TestingT(t) }
+func Test(t *testing.T) {
+	suite.Run(t, new(ConfigSuite))
+}
 
 type ConfigSuite struct {
+	suite.Suite
 	expectedConfig Configuration
 }
 
-var _ = check.Suite(&ConfigSuite{})
-
-func (suite *ConfigSuite) SetUpTest(c *check.C) {
+func (suite *ConfigSuite) SetupTest() {
 	os.Clearenv()
 	suite.expectedConfig = configStruct
 }
 
-func (suite *ConfigSuite) TestMarshalRoundtrip(c *check.C) {
+func (suite *ConfigSuite) TestMarshalRoundtrip() {
 	configBytes, err := yaml.Marshal(suite.expectedConfig)
-	c.Assert(err, check.IsNil)
+	assert.Nil(suite.T(), err)
 	var config Configuration
 	err = yaml.Unmarshal(configBytes, &config)
-	c.Assert(err, check.IsNil)
-	c.Assert(config, check.DeepEquals, suite.expectedConfig)
+	assert.Nil(suite.T(), err)
+	assert.True(suite.T(), assert.ObjectsAreEqual(config, suite.expectedConfig))
 }
 
-func (suite *ConfigSuite) TestParseSimple(c *check.C) {
+func (suite *ConfigSuite) TestParseSimple() {
 	var config Configuration
 	err := yaml.Unmarshal([]byte(configYaml), &config)
-	c.Assert(err, check.IsNil)
-	c.Assert(config, check.DeepEquals, suite.expectedConfig)
+	assert.Nil(suite.T(), err)
+	assert.True(suite.T(), assert.ObjectsAreEqual(config, suite.expectedConfig))
 }

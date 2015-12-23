@@ -8,18 +8,20 @@ import (
 
 	"github.com/ch3lo/overlord/scheduler"
 
-	"gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestCriteria(t *testing.T) { check.TestingT(t) }
+func TestCriteria(t *testing.T) {
+	suite.Run(t, new(CriteriaSuite))
+}
 
 type CriteriaSuite struct {
+	suite.Suite
 	data map[string]*ServiceUpdaterData
 }
 
-var _ = check.Suite(&CriteriaSuite{})
-
-func (suite *CriteriaSuite) SetUpTest(c *check.C) {
+func (suite *CriteriaSuite) SetupTest() {
 	os.Clearenv()
 	suite.data = make(map[string]*ServiceUpdaterData)
 
@@ -56,53 +58,53 @@ func (suite *CriteriaSuite) SetUpTest(c *check.C) {
 	}
 }
 
-func (suite *CriteriaSuite) assertLenCriteria(c *check.C, criteria ServiceChangeCriteria, length int) {
+func (suite *CriteriaSuite) assertLenCriteria(criteria ServiceChangeCriteria, length int) {
 	result := criteria.MeetCriteria(suite.data)
-	c.Assert(result, check.HasLen, length)
+	assert.Len(suite.T(), result, length)
 }
 
-func (suite *CriteriaSuite) assertImageNameAndImageTagRegexpCriteria(c *check.C, name string, length int) {
-	suite.assertLenCriteria(c, &ImageNameAndImageTagRegexpCriteria{regexp.MustCompile(name)}, length)
+func (suite *CriteriaSuite) assertImageNameAndImageTagRegexpCriteria(name string, length int) {
+	suite.assertLenCriteria(&ImageNameAndImageTagRegexpCriteria{regexp.MustCompile(name)}, length)
 }
 
-func (suite *CriteriaSuite) TestImageNameAndImageTagRegexpCriteria(c *check.C) {
-	suite.assertImageNameAndImageTagRegexpCriteria(c, "registry.com/nombre_imagen", 1)
-	suite.assertImageNameAndImageTagRegexpCriteria(c, "nombre", 2)
-	suite.assertImageNameAndImageTagRegexpCriteria(c, "registry.com", 2)
-	suite.assertImageNameAndImageTagRegexpCriteria(c, "bad.registry", 0)
-	suite.assertImageNameAndImageTagRegexpCriteria(c, "registry.com/nombre_imagen:123", 0)
-	suite.assertImageNameAndImageTagRegexpCriteria(c, "registry.com/nombre_imagen:tag-123", 1)
-	suite.assertImageNameAndImageTagRegexpCriteria(c, "tag-123", 1)
-	suite.assertImageNameAndImageTagRegexpCriteria(c, ":tag-123$", 1)
-	suite.assertImageNameAndImageTagRegexpCriteria(c, ":tag$", 0)
+func (suite *CriteriaSuite) TestImageNameAndImageTagRegexpCriteria() {
+	suite.assertImageNameAndImageTagRegexpCriteria("registry.com/nombre_imagen", 1)
+	suite.assertImageNameAndImageTagRegexpCriteria("nombre", 2)
+	suite.assertImageNameAndImageTagRegexpCriteria("registry.com", 2)
+	suite.assertImageNameAndImageTagRegexpCriteria("bad.registry", 0)
+	suite.assertImageNameAndImageTagRegexpCriteria("registry.com/nombre_imagen:123", 0)
+	suite.assertImageNameAndImageTagRegexpCriteria("registry.com/nombre_imagen:tag-123", 1)
+	suite.assertImageNameAndImageTagRegexpCriteria("tag-123", 1)
+	suite.assertImageNameAndImageTagRegexpCriteria(":tag-123$", 1)
+	suite.assertImageNameAndImageTagRegexpCriteria(":tag$", 0)
 }
 
-func (suite *CriteriaSuite) TestStatusCriteria(c *check.C) {
-	suite.assertLenCriteria(c, &StatusCriteria{ServiceAdded}, 1)
-	suite.assertLenCriteria(c, &StatusCriteria{ServiceUpdated}, 1)
-	suite.assertLenCriteria(c, &StatusCriteria{ServiceRemoved}, 0)
+func (suite *CriteriaSuite) TestStatusCriteria() {
+	suite.assertLenCriteria(&StatusCriteria{ServiceAdded}, 1)
+	suite.assertLenCriteria(&StatusCriteria{ServiceUpdated}, 1)
+	suite.assertLenCriteria(&StatusCriteria{ServiceRemoved}, 0)
 }
 
-func (suite *CriteriaSuite) TestHealthyCriteria(c *check.C) {
-	suite.assertLenCriteria(c, &HealthyCriteria{true}, 1)
-	suite.assertLenCriteria(c, &HealthyCriteria{false}, 1)
+func (suite *CriteriaSuite) TestHealthyCriteria() {
+	suite.assertLenCriteria(&HealthyCriteria{true}, 1)
+	suite.assertLenCriteria(&HealthyCriteria{false}, 1)
 }
 
-func (suite *CriteriaSuite) TestAndCriteria(c *check.C) {
-	suite.assertLenCriteria(c, &AndCriteria{
+func (suite *CriteriaSuite) TestAndCriteria() {
+	suite.assertLenCriteria(&AndCriteria{
 		&ImageNameAndImageTagRegexpCriteria{regexp.MustCompile("nombre")},
 		&ImageNameAndImageTagRegexpCriteria{regexp.MustCompile("tag")},
 	}, 2)
-	suite.assertLenCriteria(c, &AndCriteria{&StatusCriteria{ServiceAdded}, &HealthyCriteria{true}}, 1)
-	suite.assertLenCriteria(c, &AndCriteria{&StatusCriteria{ServiceAdded}, &HealthyCriteria{false}}, 0)
+	suite.assertLenCriteria(&AndCriteria{&StatusCriteria{ServiceAdded}, &HealthyCriteria{true}}, 1)
+	suite.assertLenCriteria(&AndCriteria{&StatusCriteria{ServiceAdded}, &HealthyCriteria{false}}, 0)
 }
 
-func (suite *CriteriaSuite) TestOrCriteria(c *check.C) {
-	suite.assertLenCriteria(c, &OrCriteria{
+func (suite *CriteriaSuite) TestOrCriteria() {
+	suite.assertLenCriteria(&OrCriteria{
 		&ImageNameAndImageTagRegexpCriteria{regexp.MustCompile("nombre")},
 		&ImageNameAndImageTagRegexpCriteria{regexp.MustCompile("tag")},
 	}, 2)
-	suite.assertLenCriteria(c, &OrCriteria{&HealthyCriteria{false}, &HealthyCriteria{true}}, 2)
-	suite.assertLenCriteria(c, &OrCriteria{&StatusCriteria{ServiceAdded}, &HealthyCriteria{true}}, 1)
-	suite.assertLenCriteria(c, &OrCriteria{&StatusCriteria{ServiceAdded}, &HealthyCriteria{false}}, 2)
+	suite.assertLenCriteria(&OrCriteria{&HealthyCriteria{false}, &HealthyCriteria{true}}, 2)
+	suite.assertLenCriteria(&OrCriteria{&StatusCriteria{ServiceAdded}, &HealthyCriteria{true}}, 1)
+	suite.assertLenCriteria(&OrCriteria{&StatusCriteria{ServiceAdded}, &HealthyCriteria{false}}, 2)
 }

@@ -4,35 +4,49 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/ch3lo/overlord/configuration"
 	"github.com/ch3lo/overlord/scheduler"
-
-	"gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestServiceUpdater(t *testing.T) { check.TestingT(t) }
-
-type ServiceDataStatusSuite struct {
+func TestServiceUpdater(t *testing.T) {
+	suite.Run(t, new(ServiceDataStatusSuite))
+	suite.Run(t, new(ServiceUpdaterDataSuite))
+	suite.Run(t, new(ServiceUpdaterSuite))
 }
 
-var _ = check.Suite(&ServiceDataStatusSuite{})
+type ServiceDataStatusSuite struct {
+	suite.Suite
+}
 
-func (suite *ServiceDataStatusSuite) TestAreDistinct(c *check.C) {
-	c.Assert(fmt.Sprint(ServiceUpdated), check.Equals, "ServiceUpdated")
-	c.Assert(fmt.Sprint(ServiceAdded), check.Equals, "ServiceAdded")
-	c.Assert(fmt.Sprint(ServiceRemoved), check.Equals, "ServiceRemoved")
-	c.Assert(fmt.Sprint(ServiceUpdating), check.Equals, "ServiceUpdating")
+func (suite *ServiceDataStatusSuite) TestAreDistinct() {
+	assert := assert.New(suite.T())
+	assert.Equal(fmt.Sprint(ServiceUpdated), "ServiceUpdated")
+	assert.Equal(fmt.Sprint(ServiceAdded), "ServiceAdded")
+	assert.Equal(fmt.Sprint(ServiceRemoved), "ServiceRemoved")
+	assert.Equal(fmt.Sprint(ServiceUpdating), "ServiceUpdating")
 }
 
 type ServiceUpdaterDataSuite struct {
+	suite.Suite
 }
 
-var _ = check.Suite(&ServiceUpdaterDataSuite{})
-
-func (suite *ServiceUpdaterDataSuite) TestNew(c *check.C) {
+func (suite *ServiceUpdaterDataSuite) TestNew() {
+	assert := assert.New(suite.T())
 	updater := NewServiceUpdaterData()
-	c.Assert(updater.RegisterDate(), check.NotNil)
-	c.Assert(updater.LastAction(), check.Equals, ServiceAdded)
-	c.Assert(updater.ClusterID(), check.Equals, "")
-	c.Assert(updater.Origin(), check.Equals, scheduler.ServiceInformation{})
-	c.Assert(updater.InStatus(ServiceAdded), check.Equals, true)
+	assert.NotNil(updater.RegisterDate())
+	assert.Equal(updater.LastAction(), ServiceAdded)
+	assert.Equal(updater.ClusterID(), "")
+	assert.Equal(updater.Origin(), scheduler.ServiceInformation{})
+	assert.Equal(updater.InStatus(ServiceAdded), true)
+}
+
+type ServiceUpdaterSuite struct {
+	suite.Suite
+}
+
+func (suite *ServiceUpdaterSuite) TestNewServiceUpdater() {
+	config := configuration.Updater{}
+	assert.Panics(suite.T(), func() { NewServiceUpdater(config, nil) })
 }
