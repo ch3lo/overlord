@@ -3,7 +3,9 @@ package monitor
 import (
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/ch3lo/overlord/cluster"
 	"github.com/ch3lo/overlord/configuration"
 	"github.com/ch3lo/overlord/scheduler"
 	"github.com/stretchr/testify/assert"
@@ -47,6 +49,18 @@ type ServiceUpdaterSuite struct {
 }
 
 func (suite *ServiceUpdaterSuite) TestNewServiceUpdater() {
+	assert := assert.New(suite.T())
 	config := configuration.Updater{}
-	assert.Panics(suite.T(), func() { NewServiceUpdater(config, nil) })
+	assert.Panics(func() { NewServiceUpdater(config, nil) })
+	c := make(map[string]*cluster.Cluster)
+	assert.Panics(func() { NewServiceUpdater(config, c) })
+
+	c["asd"] = &cluster.Cluster{}
+	updater := NewServiceUpdater(config, c)
+	assert.NotNil(updater)
+	assert.Equal(10*time.Second, updater.interval)
+	assert.NotNil(updater.subscribers)
+	assert.NotNil(updater.subscriberCriteria)
+	assert.NotNil(updater.services)
+	assert.Equal(c, updater.clusters)
 }
