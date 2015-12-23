@@ -35,8 +35,8 @@ type parameters struct {
 	tlskey    string
 }
 
-// NewFromParameters construye un SwarmScheduler a partir de un mapeo de parámetros
-// Al menos se debe pasar como parametro address
+// NewFromParameters construye un Scheduler a partir de un mapeo de parámetros
+// Al menos se debe pasar como parametro address, ya que si no existe se retornara un error
 // Si se pasa tlsverify como true los parametros tlscacert, tlscert y tlskey también deben existir
 func NewFromParameters(params map[string]interface{}) (*Scheduler, error) {
 
@@ -85,7 +85,7 @@ func NewFromParameters(params map[string]interface{}) (*Scheduler, error) {
 	return New(p)
 }
 
-// New construye un nuevo SwarmScheduler
+// New instancia un nuevo cliente de Swarm
 func New(params parameters) (*Scheduler, error) {
 
 	swarm := new(Scheduler)
@@ -110,7 +110,7 @@ type Scheduler struct {
 	tmp    string
 }
 
-// ID retorna el identificador del scheduler
+// ID retorna el identificador del scheduler Swarm
 func (ss *Scheduler) ID() string {
 	return schedulerID
 }
@@ -124,10 +124,10 @@ func (ss *Scheduler) IsAlive(id string) (bool, error) {
 	return container.State.Running && !container.State.Paused, nil
 }
 
-// Instances retorna todas las instancias de que maneja el scheduler
-// filtrando aquellas que no son de interes
-func (ss *Scheduler) Instances(filter scheduler.FilterInstances) ([]scheduler.ServiceInformation, error) {
-	// TODO implementar el uso del filtro
+// Instances retorna todas las instancias que maneja el scheduler
+// Parseando la informacion obtenida para cumplir con la interfaz scheduler.ServiceInformation
+func (ss *Scheduler) Instances() ([]scheduler.ServiceInformation, error) {
+	// TODO implementar el uso de filtro con criterios
 	containers, err := ss.client.ListContainers(docker.ListContainersOptions{All: true})
 	if err != nil {
 		return nil, err

@@ -179,7 +179,7 @@ func (su *ServiceUpdater) detachedMonitor() {
 
 		for clusterKey, c := range su.clusters {
 			util.Log.WithField("cluster", clusterKey).Infof("Monitoreando cluster")
-			srvs, err := c.GetScheduler().Instances(scheduler.FilterInstances{})
+			srvs, err := c.GetScheduler().Instances()
 			if err != nil {
 				util.Log.WithFields(log.Fields{
 					"cluster":   clusterKey,

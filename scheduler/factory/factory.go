@@ -12,11 +12,13 @@ var schedulerFactories = make(map[string]SchedulerFactory)
 
 // SchedulerFactory es una interfaz para crear un Scheduler
 // Cada Scheduler debe implementar estar interfaz y además llamar el metodo Register
+// para registrar el constructor de la implementacion
 type SchedulerFactory interface {
 	Create(parameters map[string]interface{}) (scheduler.Scheduler, error)
 }
 
-// Register permite a una implementación de Scheduler estar disponible mediante un nombre
+// Register permite registrar a una implementación de Scheduler, de esta
+// manera estara disponible mediante su ID para poder ser instanciado
 func Register(name string, factory SchedulerFactory) {
 	if factory == nil {
 		util.Log.Fatal("Se debe pasar como argumento un SchedulerFactory")
@@ -29,7 +31,7 @@ func Register(name string, factory SchedulerFactory) {
 	schedulerFactories[name] = factory
 }
 
-// Create crea un Scheduler a partir de su nombre.
+// Create crea un Scheduler a partir de un ID y retorna la implementacion asociada a él.
 // Si el Scheduler no estaba registrado se retornará un InvalidScheduler
 func Create(name string, parameters map[string]interface{}) (scheduler.Scheduler, error) {
 	schedulerFactory, ok := schedulerFactories[name]
@@ -39,7 +41,8 @@ func Create(name string, parameters map[string]interface{}) (scheduler.Scheduler
 	return schedulerFactory.Create(parameters)
 }
 
-// InvalidScheduler sucede cuando se instenta construir un Scheduler no registrado
+// InvalidScheduler es una estructura de error utilizada cuando se instenta
+// crear un Scheduler no registrado
 type InvalidScheduler struct {
 	Name string
 }

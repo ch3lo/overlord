@@ -9,8 +9,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func Test(t *testing.T) { check.TestingT(t) }
-
 // configStruct is a canonical example configuration, which should map to configYaml
 var configStruct = Configuration{
 	Updater: Updater{
@@ -160,6 +158,8 @@ notification:
         job: asd321
 `
 
+func Test(t *testing.T) { check.TestingT(t) }
+
 type ConfigSuite struct {
 	expectedConfig Configuration
 }
@@ -171,8 +171,6 @@ func (suite *ConfigSuite) SetUpTest(c *check.C) {
 	suite.expectedConfig = configStruct
 }
 
-// TestMarshalRoundtrip validates that configStruct can be marshaled and
-// unmarshaled without changing any parameters
 func (suite *ConfigSuite) TestMarshalRoundtrip(c *check.C) {
 	configBytes, err := yaml.Marshal(suite.expectedConfig)
 	c.Assert(err, check.IsNil)
@@ -182,8 +180,6 @@ func (suite *ConfigSuite) TestMarshalRoundtrip(c *check.C) {
 	c.Assert(config, check.DeepEquals, suite.expectedConfig)
 }
 
-// TestParseSimple validates that configYamlV0_1 can be parsed into a struct
-// matching configStruct
 func (suite *ConfigSuite) TestParseSimple(c *check.C) {
 	var config Configuration
 	err := yaml.Unmarshal([]byte(configYaml), &config)
