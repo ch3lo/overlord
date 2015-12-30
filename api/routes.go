@@ -5,7 +5,7 @@ import (
 	"github.com/thoas/stats"
 )
 
-func Routes(sts *stats.Stats) *mux.Router {
+func routes(sts *stats.Stats) *mux.Router {
 	router := mux.NewRouter()
 
 	sh := &statsHandler{s: sts}

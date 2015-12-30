@@ -22,6 +22,11 @@ func (sh *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rend.JSON(w, http.StatusOK, stats)
 }
 
+type Response struct {
+	status int         `json:"status"`
+	data   interface{} `json:"data"`
+}
+
 func getServices(w http.ResponseWriter, r *http.Request) {
 	servicesList := engine.GetAppInstance().GetServices()
 	var apiServices []types.ServiceGroup
@@ -56,6 +61,7 @@ func getServices(w http.ResponseWriter, r *http.Request) {
 	rend.JSON(w, http.StatusOK, map[string]interface{}{
 		"status":   http.StatusOK,
 		"services": apiServices})
+	//rend.JSON(w, http.StatusOK, &Response{status: http.StatusOK, data: apiServices})
 }
 
 func putService(w http.ResponseWriter, r *http.Request) {
