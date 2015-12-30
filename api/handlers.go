@@ -1,18 +1,29 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/ch3lo/overlord/api/types"
 	"github.com/ch3lo/overlord/engine"
 	"github.com/ch3lo/overlord/manager/service"
 	"github.com/ch3lo/overlord/util"
-	"github.com/gin-gonic/gin"
+	"github.com/thoas/stats"
+	"github.com/unrolled/render"
 )
 
-func GetServices(c *gin.Context) {
-	servicesList := engine.GetAppInstance().GetServices()
+type statsHandler struct {
+	s *stats.Stats
+}
 
+func (sh *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	rend := render.New()
+	stats := sh.s.Data()
+	rend.JSON(w, http.StatusOK, stats)
+}
+
+func getServices(w http.ResponseWriter, r *http.Request) {
+	servicesList := engine.GetAppInstance().GetServices()
 	var apiServices []types.ServiceGroup
 	for _, srv := range servicesList {
 		var apiVersions []types.ServiceManager
@@ -41,18 +52,20 @@ func GetServices(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	rend := render.New()
+	rend.JSON(w, http.StatusOK, map[string]interface{}{
 		"status":   http.StatusOK,
 		"services": apiServices})
 }
 
-func PutService(c *gin.Context) {
-	var bindedService types.ServiceGroup
+func putService(w http.ResponseWriter, r *http.Request) {
+	rend := render.New()
 
-	if err := c.BindJSON(&bindedService); err != nil {
+	var bindedService types.ServiceGroup
+	if err := json.NewDecoder(r.Body).Decode(&bindedService); err != nil {
 		util.Log.Println(err)
 		se := &SerializationError{Message: err.Error()}
-		c.JSON(http.StatusOK, gin.H{
+		rend.JSON(w, http.StatusOK, map[string]interface{}{
 			"status":  se.GetStatus(),
 			"message": se.GetMessage()})
 		return
@@ -88,63 +101,67 @@ func PutService(c *gin.Context) {
 				newErr = &UnknownError{}
 			}
 
-			c.JSON(http.StatusOK, gin.H{
+			rend.JSON(w, http.StatusOK, map[string]interface{}{
 				"status":  newErr.GetStatus(),
 				"message": newErr.GetMessage()})
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	rend.JSON(w, http.StatusOK, map[string]interface{}{
 		"status":  http.StatusOK,
 		"service": bindedService})
 }
 
-func GetServiceByServiceId(c *gin.Context) {
+func getServiceByServiceId(w http.ResponseWriter, r *http.Request) {
 	/*	serviceId := c.Param("service_id")
 
 		bag := manager.ServicesBag()
 		for _, v := range bag {
 			if v.Id == serviceId {
-				c.JSON(http.StatusOK, gin.H{
+				rend.JSON(http.StatusOK, map[string]string{
 					"status":  http.StatusOK,
 					"service": types.Service{}})
 				return
 			}
 		}*/
+	rend := render.New()
 
 	snf := &ServiceNotFound{}
-	c.JSON(http.StatusOK, gin.H{
+	rend.JSON(w, http.StatusOK, map[string]interface{}{
 		"status":  snf.GetStatus(),
 		"message": snf.GetMessage()})
 }
 
-func GetServiceByClusterAndServiceId(c *gin.Context) {
+func getServiceByClusterAndServiceId(w http.ResponseWriter, r *http.Request) {
 	/*cluster := c.Param("cluster")
 	serviceId := c.Param("service_id")
 
 		status, err := manager.GetService(cluster, serviceId)
 		if err != nil {
 			snf := &ServiceNotFound{}
-			c.JSON(http.StatusOK, gin.H{
+			rend.JSON(http.StatusOK, map[string]string{
 				"status":  snf.GetStatus(),
 				"message": err.Error()})
 			return
 		}*/
+	rend := render.New()
 
-	c.JSON(http.StatusOK, gin.H{
+	rend.JSON(w, http.StatusOK, map[string]interface{}{
 		"status":  http.StatusOK,
 		"service": ""})
 }
 
-func PutServiceVersionByServiceId(c *gin.Context) {
+func putServiceVersionByServiceId(w http.ResponseWriter, r *http.Request) {
 	//	serviceId := c.Param("service_id")
+	rend := render.New()
+
 	var sv types.ServiceManager
 
-	if err := c.BindJSON(&sv); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&sv); err != nil {
 		util.Log.Println(err)
 		se := &SerializationError{Message: err.Error()}
-		c.JSON(http.StatusOK, gin.H{
+		rend.JSON(w, http.StatusOK, map[string]interface{}{
 			"status":  se.GetStatus(),
 			"message": se.GetMessage()})
 		return
@@ -155,19 +172,19 @@ func PutServiceVersionByServiceId(c *gin.Context) {
 		if err := manager.RegisterServiceVersion(serviceId, managedsv); err != nil {
 			util.Log.Println(err)
 			if ce, ok := err.(*util.ElementAlreadyExists); ok {
-				c.JSON(http.StatusOK, gin.H{
+				rend.JSON(http.StatusOK, map[string]string{
 					"status":  ce.GetStatus(),
 					"message": ce.GetMessage()})
 			} else {
 				ue := &UnknownError{}
-				c.JSON(http.StatusOK, gin.H{
+				rend.JSON(http.StatusOK, map[string]string{
 					"status":  ue.GetStatus(),
 					"message": ue.GetMessage()})
 			}
 			return
 		}
 	*/
-	c.JSON(http.StatusOK, gin.H{
+	rend.JSON(w, http.StatusOK, map[string]interface{}{
 		"status":          http.StatusOK,
 		"service_version": sv})
 }
@@ -183,7 +200,7 @@ func ServicesTestGet(c *gin.Context) {
 		manager.Register(&service)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	rend.JSON(http.StatusOK, map[string]string{
 		"status": http.StatusOK,
 		"data":   manager.MonitoredServices[0].GetMonitor().Check("asd", "localhost:80")})
 }

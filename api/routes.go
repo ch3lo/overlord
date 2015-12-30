@@ -1,35 +1,26 @@
 package api
 
 import (
-	"time"
-
-	"github.com/gin-gonic/gin"
-	"github.com/itsjamie/gin-cors"
+	"github.com/gorilla/mux"
+	"github.com/thoas/stats"
 )
 
-func Routes() *gin.Engine {
-	router := gin.New()
+func Routes(sts *stats.Stats) *mux.Router {
+	router := mux.NewRouter()
 
-	router.Use(cors.Middleware(cors.Config{
-		Origins:         "*",
-		Methods:         "POST, GET, OPTIONS, PUT, DELETE, UPDATE",
-		RequestHeaders:  "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization",
-		ExposedHeaders:  "Content-Length",
-		MaxAge:          50 * time.Second,
-		Credentials:     true,
-		ValidateHeaders: false,
-	}))
+	sh := &statsHandler{s: sts}
+	router.Handle("/stats", sh).Methods("GET")
 
 	// API v1
-	v1Services := router.Group("/api/v1/services")
-	v1Services.GET("/", GetServices)
-	v1Services.PUT("/", PutService)
+	v1Services := router.PathPrefix("/api/v1/services").Subrouter()
+	v1Services.HandleFunc("/", getServices).Methods("GET")
+	v1Services.HandleFunc("/", putService).Methods("PUT")
 	//v1Services.GET("/test", ServicesTestGet)
 
-	v1Services.GET("/:service_id", GetServiceByServiceId)
-	v1Services.PUT("/:service_id/versions", PutServiceVersionByServiceId)
+	v1Services.HandleFunc("/{service_id}", getServiceByServiceId).Methods("GET")
+	v1Services.HandleFunc("/{service_id}/versions", putServiceVersionByServiceId).Methods("PUT")
 
-	v1Services.GET("/:service_id/:cluster", GetServiceByClusterAndServiceId)
+	v1Services.HandleFunc("/{service_id}/{cluster}", getServiceByClusterAndServiceId).Methods("GET")
 
 	return router
 }
