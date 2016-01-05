@@ -19,9 +19,9 @@ import (
 	_ "github.com/ch3lo/overlord/scheduler/swarm"
 )
 
-var overlordApp *Overlord
+var overlordApp *overlord
 
-type Overlord struct {
+type overlord struct {
 	serviceMux         sync.Mutex
 	config             *configuration.Configuration
 	serviceUpdater     *monitor.ServiceUpdater
@@ -31,7 +31,7 @@ type Overlord struct {
 }
 
 func NewApp(config *configuration.Configuration) {
-	app := &Overlord{
+	app := &overlord{
 		config:             config,
 		clusters:           make(map[string]*cluster.Cluster),
 		serviceGroupMapper: make(map[string]*service.Group),
@@ -44,12 +44,12 @@ func NewApp(config *configuration.Configuration) {
 	overlordApp = app
 }
 
-func GetAppInstance() *Overlord {
+func GetAppInstance() *overlord {
 	return overlordApp
 }
 
 // setupBroadcaster inicializa el broadcaster de Notificaciones
-func (o *Overlord) setupBroadcaster(config configuration.Notification) {
+func (o *overlord) setupBroadcaster(config configuration.Notification) {
 	broadcaster := report.NewBroadcaster(config.AttemptsOnError, config.WaitOnError, config.WaitAfterAttemts)
 	var notifications []notification.Notification
 	for key, params := range config.Providers {
@@ -80,7 +80,7 @@ func (o *Overlord) setupBroadcaster(config configuration.Notification) {
 }
 
 // setupClusters inicia el cluster, mapeando el cluster el id del cluster como key
-func (o *Overlord) setupClusters(config map[string]configuration.Cluster) {
+func (o *overlord) setupClusters(config map[string]configuration.Cluster) {
 	for key := range config {
 		c, err := cluster.NewCluster(key, config[key])
 		if err != nil {
@@ -103,13 +103,13 @@ func (o *Overlord) setupClusters(config map[string]configuration.Cluster) {
 }
 
 // setupServiceUpdater inicia el componente que monitorea cambios de servicios
-func (o *Overlord) setupServiceUpdater(config configuration.Updater) {
+func (o *overlord) setupServiceUpdater(config configuration.Updater) {
 	su := monitor.NewServiceUpdater(config, o.clusters)
 	su.Monitor()
 	o.serviceUpdater = su
 }
 
-func (o *Overlord) clusterIds() []string {
+func (o *overlord) clusterIds() []string {
 	var names []string
 	for k := range o.clusters {
 		names = append(names, k)
@@ -121,7 +121,7 @@ func (o *Overlord) clusterIds() []string {
 // Si el contenedor ya existia se omite su creación y se procede a registrar
 // las versiones de los servicios.
 // Si no se puede registrar una nueva version se retornara un error.
-func (o *Overlord) RegisterService(params service.Parameters) (*service.Manager, error) {
+func (o *overlord) RegisterService(params service.Parameters) (*service.Manager, error) {
 	o.serviceMux.Lock()
 	defer o.serviceMux.Unlock()
 
@@ -138,7 +138,7 @@ func (o *Overlord) RegisterService(params service.Parameters) (*service.Manager,
 	return sm, nil
 }
 
-func (o *Overlord) RegisterGroup(params service.Parameters) *service.Group {
+func (o *overlord) RegisterGroup(params service.Parameters) *service.Group {
 	var group *service.Group
 	var ok bool
 	if group, ok = o.serviceGroupMapper[params.ID]; ok {
@@ -150,7 +150,7 @@ func (o *Overlord) RegisterGroup(params service.Parameters) *service.Group {
 	return group
 }
 
-func (o *Overlord) GetServices() map[string]*service.Group {
+func (o *overlord) GetServices() map[string]*service.Group {
 	return o.serviceGroupMapper
 }
 

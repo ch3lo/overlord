@@ -2,101 +2,80 @@ package api
 
 import "fmt"
 
-type CustomStatusAndMessageError interface {
-	error
-	GetStatus() int
+type apiError interface {
+	GetCode() int
 	GetMessage() string
 }
 
+type codeAndMessage struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+func (e codeAndMessage) GetCode() int {
+	return e.Code
+}
+
+func (e codeAndMessage) GetMessage() string {
+	return e.Message
+}
+
+func (e codeAndMessage) Error() string {
+	return fmt.Sprintf("%v: %v", e.Code, e.Message)
+}
+
 type ElementAlreadyExists struct {
+	codeAndMessage
 }
 
-func (e *ElementAlreadyExists) GetStatus() int {
-	return 400
-}
-
-func (e *ElementAlreadyExists) GetMessage() string {
-	return "Elemento ya existe"
-}
-
-func (ce *ElementAlreadyExists) Error() string {
-	return fmt.Sprintf("%v: %v", ce.GetStatus(), ce.GetMessage())
+func NewElementAlreadyExists() ElementAlreadyExists {
+	return ElementAlreadyExists{
+		codeAndMessage{Code: 400, Message: "Elemento ya existe"},
+	}
 }
 
 type ServiceNotFound struct {
+	codeAndMessage
 }
 
-func (e *ServiceNotFound) GetStatus() int {
-	return 400
-}
-
-func (e *ServiceNotFound) GetMessage() string {
-	return "Servicio no existe"
-}
-
-func (ce *ServiceNotFound) Error() string {
-	return fmt.Sprintf("%v: %v", ce.GetStatus(), ce.GetMessage())
+func NewServiceNotFound() ServiceNotFound {
+	return ServiceNotFound{
+		codeAndMessage{Code: 400, Message: "Servicio no existe"},
+	}
 }
 
 type SerializationError struct {
-	Message string
+	codeAndMessage
+	Detail string `json:"detail"`
 }
 
-func (e *SerializationError) GetStatus() int {
-	return 400
-}
-
-func (e *SerializationError) GetMessage() string {
-	return e.Message
-}
-
-func (ce *SerializationError) Error() string {
-	return fmt.Sprintf("%v: %v", ce.GetStatus(), ce.GetMessage())
+func NewSerializationError(d string) SerializationError {
+	return SerializationError{
+		codeAndMessage{Code: 400, Message: "Servicio no existe"},
+		d,
+	}
 }
 
 type UnknownError struct {
+	codeAndMessage
+	detail string
 }
 
-func (e *UnknownError) GetStatus() int {
-	return 500
-}
-
-func (e *UnknownError) GetMessage() string {
-	return "Error desconocido"
-}
-
-func (ce *UnknownError) Error() string {
-	return fmt.Sprintf("%v: %v", ce.GetStatus(), ce.GetMessage())
+func NewUnknownError(d string) UnknownError {
+	return UnknownError{
+		codeAndMessage{Code: 500, Message: "Error desconocido"},
+		d,
+	}
 }
 
 type ImageNameRegexpError struct {
-	Message string
+	codeAndMessage
+	Detail string `json:"detail"`
 }
 
-func (e *ImageNameRegexpError) GetStatus() int {
-	return 400
-}
-
-func (e *ImageNameRegexpError) GetMessage() string {
-	return e.Message
-}
-
-func (ce *ImageNameRegexpError) Error() string {
-	return fmt.Sprintf("%v: %v", ce.GetStatus(), ce.GetMessage())
-}
-
-// NO USADO AUN
-type ServiceVersionNotFound struct {
-}
-
-func (e *ServiceVersionNotFound) GetStatus() int {
-	return 400
-}
-
-func (e *ServiceVersionNotFound) GetMessage() string {
-	return "Version del servicio no existe"
-}
-
-func (ce *ServiceVersionNotFound) Error() string {
-	return fmt.Sprintf("%v: %v", ce.GetStatus(), ce.GetMessage())
+func NewImageNameRegexpError(d string) ImageNameRegexpError {
+	return ImageNameRegexpError{
+		codeAndMessage{Code: 400, Message: "Error con la expresion regular"},
+		d,
+	}
 }

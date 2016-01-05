@@ -12,22 +12,43 @@ import (
 	"github.com/unrolled/render"
 )
 
+type serviceHandler func(w http.ResponseWriter, r *http.Request) error
+
+type errorHandler struct {
+	f serviceHandler
+}
+
+func (eh *errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := eh.f(w, r); err != nil {
+		util.Log.Errorln(err)
+		if err2, ok := err.(apiError); ok {
+			jsonRenderer(w, err2)
+			return
+		}
+		jsonRenderer(w, NewUnknownError(err.Error()))
+	}
+}
+
 type statsHandler struct {
 	s *stats.Stats
 }
 
 func (sh *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	rend := render.New()
 	stats := sh.s.Data()
-	rend.JSON(w, http.StatusOK, stats)
+	jsonRenderer(w, stats)
 }
 
 type Response struct {
-	status int         `json:"status"`
-	data   interface{} `json:"data"`
+	Status int         `json:"status"`
+	Data   interface{} `json:"data"`
 }
 
-func getServices(w http.ResponseWriter, r *http.Request) {
+func jsonRenderer(w http.ResponseWriter, i interface{}) {
+	rend := render.New()
+	rend.JSON(w, http.StatusOK, i)
+}
+
+func getServices(w http.ResponseWriter, r *http.Request) error {
 	servicesList := engine.GetAppInstance().GetServices()
 	var apiServices []types.ServiceGroup
 	for _, srv := range servicesList {
@@ -57,24 +78,15 @@ func getServices(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	rend := render.New()
-	rend.JSON(w, http.StatusOK, map[string]interface{}{
-		"status":   http.StatusOK,
-		"services": apiServices})
-	//rend.JSON(w, http.StatusOK, &Response{status: http.StatusOK, data: apiServices})
+	jsonRenderer(w, &Response{Status: http.StatusOK, Data: apiServices})
+	return nil
+
 }
 
-func putService(w http.ResponseWriter, r *http.Request) {
-	rend := render.New()
-
+func putService(w http.ResponseWriter, r *http.Request) error {
 	var bindedService types.ServiceGroup
 	if err := json.NewDecoder(r.Body).Decode(&bindedService); err != nil {
-		util.Log.Println(err)
-		se := &SerializationError{Message: err.Error()}
-		rend.JSON(w, http.StatusOK, map[string]interface{}{
-			"status":  se.GetStatus(),
-			"message": se.GetMessage()})
-		return
+		return NewSerializationError(err.Error())
 	}
 
 	for _, v := range bindedService.Managers {
@@ -93,33 +105,24 @@ func putService(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if _, err := engine.GetAppInstance().RegisterService(params); err != nil {
-			util.Log.Println(err)
-
-			var newErr CustomStatusAndMessageError
 			switch err.(type) {
 			case *service.AlreadyExist:
-				newErr = &ElementAlreadyExists{}
-				break
+				return NewElementAlreadyExists()
 			case *service.ImageNameRegexpError:
-				newErr = &ImageNameRegexpError{err.Error()}
-				break
+				return NewImageNameRegexpError(err.Error())
 			default:
-				newErr = &UnknownError{}
+				return NewUnknownError(err.Error())
 			}
 
-			rend.JSON(w, http.StatusOK, map[string]interface{}{
-				"status":  newErr.GetStatus(),
-				"message": newErr.GetMessage()})
-			return
 		}
 	}
-
-	rend.JSON(w, http.StatusOK, map[string]interface{}{
+	jsonRenderer(w, map[string]interface{}{
 		"status":  http.StatusOK,
 		"service": bindedService})
+	return nil
 }
 
-func getServiceByServiceId(w http.ResponseWriter, r *http.Request) {
+func getServiceByServiceId(w http.ResponseWriter, r *http.Request) error {
 	/*	serviceId := c.Param("service_id")
 
 		bag := manager.ServicesBag()
@@ -131,15 +134,10 @@ func getServiceByServiceId(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}*/
-	rend := render.New()
-
-	snf := &ServiceNotFound{}
-	rend.JSON(w, http.StatusOK, map[string]interface{}{
-		"status":  snf.GetStatus(),
-		"message": snf.GetMessage()})
+	return NewServiceNotFound()
 }
 
-func getServiceByClusterAndServiceId(w http.ResponseWriter, r *http.Request) {
+func getServiceByClusterAndServiceId(w http.ResponseWriter, r *http.Request) error {
 	/*cluster := c.Param("cluster")
 	serviceId := c.Param("service_id")
 
@@ -151,26 +149,18 @@ func getServiceByClusterAndServiceId(w http.ResponseWriter, r *http.Request) {
 				"message": err.Error()})
 			return
 		}*/
-	rend := render.New()
-
-	rend.JSON(w, http.StatusOK, map[string]interface{}{
+	jsonRenderer(w, map[string]interface{}{
 		"status":  http.StatusOK,
 		"service": ""})
+	return nil
 }
 
-func putServiceVersionByServiceId(w http.ResponseWriter, r *http.Request) {
+func putServiceVersionByServiceId(w http.ResponseWriter, r *http.Request) error {
 	//	serviceId := c.Param("service_id")
-	rend := render.New()
-
 	var sv types.ServiceManager
 
 	if err := json.NewDecoder(r.Body).Decode(&sv); err != nil {
-		util.Log.Println(err)
-		se := &SerializationError{Message: err.Error()}
-		rend.JSON(w, http.StatusOK, map[string]interface{}{
-			"status":  se.GetStatus(),
-			"message": se.GetMessage()})
-		return
+		return NewSerializationError(err.Error())
 	}
 	/*
 		managedsv := &manager.ServiceVersion{Version: sv.Version}
@@ -190,9 +180,10 @@ func putServiceVersionByServiceId(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	*/
-	rend.JSON(w, http.StatusOK, map[string]interface{}{
+	jsonRenderer(w, map[string]interface{}{
 		"status":          http.StatusOK,
 		"service_version": sv})
+	return nil
 }
 
 /*

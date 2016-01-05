@@ -5,6 +5,18 @@ import (
 	"github.com/thoas/stats"
 )
 
+var routesMap = map[string]map[string]serviceHandler{
+	"GET": {
+		"/":                       getServices,
+		"/{service_id}":           getServiceByServiceId,
+		"/{service_id}/{cluster}": getServiceByClusterAndServiceId,
+	},
+	"PUT": {
+		"/": putService,
+		"/{service_id}/versions": putServiceVersionByServiceId,
+	},
+}
+
 func routes(sts *stats.Stats) *mux.Router {
 	router := mux.NewRouter()
 
@@ -13,14 +25,12 @@ func routes(sts *stats.Stats) *mux.Router {
 
 	// API v1
 	v1Services := router.PathPrefix("/api/v1/services").Subrouter()
-	v1Services.HandleFunc("/", getServices).Methods("GET")
-	v1Services.HandleFunc("/", putService).Methods("PUT")
-	//v1Services.GET("/test", ServicesTestGet)
 
-	v1Services.HandleFunc("/{service_id}", getServiceByServiceId).Methods("GET")
-	v1Services.HandleFunc("/{service_id}/versions", putServiceVersionByServiceId).Methods("PUT")
-
-	v1Services.HandleFunc("/{service_id}/{cluster}", getServiceByClusterAndServiceId).Methods("GET")
+	for method, mappings := range routesMap {
+		for path, h := range mappings {
+			v1Services.Handle(path, &errorHandler{h}).Methods(method)
+		}
+	}
 
 	return router
 }
