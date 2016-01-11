@@ -8,8 +8,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/ch3lo/overlord/cluster"
 	"github.com/ch3lo/overlord/configuration"
-	"github.com/ch3lo/overlord/scheduler"
-	"github.com/ch3lo/overlord/util"
+	"github.com/ch3lo/overlord/logger"
+	"github.com/latam-airlines/mesos-framework-factory"
 )
 
 // ServiceDataStatus es un atributo de ServiceUpdaterData para especificar
@@ -45,7 +45,7 @@ type ServiceUpdaterData struct {
 	lastUpdate   time.Time
 	lastAction   ServiceDataStatus
 	clusterID    string
-	origin       scheduler.ServiceInformation
+	origin       *framework.ServiceInformation
 }
 
 // NewServiceUpdaterData crea una nueva instancia de ServiceUpdaterData
@@ -71,7 +71,7 @@ func (data *ServiceUpdaterData) LastAction() ServiceDataStatus { return data.las
 func (data *ServiceUpdaterData) ClusterID() string { return data.clusterID }
 
 // Origin es un wrapper a la información obtenida desde el scheduler
-func (data *ServiceUpdaterData) Origin() scheduler.ServiceInformation { return data.origin }
+func (data *ServiceUpdaterData) Origin() *framework.ServiceInformation { return data.origin }
 
 // InStatus retorna un bool tru si la instancia se encuentra en el estado pasado como parametro
 func (data *ServiceUpdaterData) InStatus(status ServiceDataStatus) bool {
@@ -95,7 +95,7 @@ type ServiceUpdater struct {
 // Necesita de al menos un cluster, sino se detendrá la ejecucion con un Fatal
 func NewServiceUpdater(config configuration.Updater, clusters map[string]*cluster.Cluster) *ServiceUpdater {
 	if clusters == nil || len(clusters) == 0 {
-		util.Log.Panicln("Al menos se debe monitorear un cluster")
+		logger.Instance().Panicln("Al menos se debe monitorear un cluster")
 	}
 
 	interval := time.Second * 10
@@ -128,7 +128,7 @@ func (su *ServiceUpdater) Register(sub ServiceUpdaterSubscriber, cc ServiceChang
 	su.subscriberCriteria[sub.ID()] = cc
 	su.subscribers[sub.ID()] = sub
 
-	util.Log.Infof("Se agregó el subscriptor: %s", sub.ID())
+	logger.Instance().Infof("Se agregó el subscriptor: %s", sub.ID())
 
 	filtered := cc.MeetCriteria(su.services)
 	if filtered != nil && len(filtered) > 0 {
@@ -145,7 +145,7 @@ func (su *ServiceUpdater) Remove(sub ServiceUpdaterSubscriber) {
 	if _, ok := su.subscribers[sub.ID()]; ok {
 		delete(su.subscriberCriteria, sub.ID())
 		delete(su.subscribers, sub.ID())
-		util.Log.Infof("Se removio el subscriptor: %s", sub.ID())
+		logger.Instance().Infof("Se removio el subscriptor: %s", sub.ID())
 		return
 	}
 }
@@ -156,7 +156,7 @@ func (su *ServiceUpdater) notify(updatedServices map[string]*ServiceUpdaterData)
 	su.subscriberMux.Lock()
 	defer su.subscriberMux.Unlock()
 
-	util.Log.Debugln("Filtrando resultados y notificando cambios")
+	logger.Instance().Debugln("Filtrando resultados y notificando cambios")
 	for k := range su.subscribers {
 		filtered := su.subscriberCriteria[k].MeetCriteria(updatedServices)
 		if filtered != nil && len(filtered) > 0 {
@@ -178,10 +178,10 @@ func (su *ServiceUpdater) detachedMonitor() {
 		su.updateServicesMux.Lock()
 
 		for clusterKey, c := range su.clusters {
-			util.Log.WithField("cluster", clusterKey).Infof("Monitoreando cluster")
-			srvs, err := c.GetScheduler().Instances()
+			logger.Instance().WithField("cluster", clusterKey).Infof("Monitoreando cluster")
+			srvs, err := c.GetScheduler().FindServiceInformation(nil)
 			if err != nil {
-				util.Log.WithFields(log.Fields{
+				logger.Instance().WithFields(log.Fields{
 					"cluster":   clusterKey,
 					"scheduler": c.GetScheduler().ID(),
 				}).Errorf("No se pudieron obtener instancias del cluster. Motivo: %s", err.Error())
@@ -191,12 +191,12 @@ func (su *ServiceUpdater) detachedMonitor() {
 			for k := range checkedServices {
 				updatedServices[k] = checkedServices[k]
 			}
-			util.Log.WithField("cluster", clusterKey).Infof("Se actualizaron %d servicios", len(checkedServices))
+			logger.Instance().WithField("cluster", clusterKey).Infof("Se actualizaron %d servicios", len(checkedServices))
 		}
 
 		su.updateServicesMux.Unlock()
 
-		util.Log.Infof("Se actualizaron %d servicios", len(updatedServices))
+		logger.Instance().Infof("Se actualizaron %d servicios", len(updatedServices))
 
 		if updatedServices != nil && len(updatedServices) > 0 {
 			su.notify(updatedServices)
@@ -206,7 +206,7 @@ func (su *ServiceUpdater) detachedMonitor() {
 	}
 }
 
-func (su *ServiceUpdater) checkClusterServices(clusterID string, clusterServices []scheduler.ServiceInformation) map[string]*ServiceUpdaterData {
+func (su *ServiceUpdater) checkClusterServices(clusterID string, clusterServices []*framework.ServiceInformation) map[string]*ServiceUpdaterData {
 	updatedServices := make(map[string]*ServiceUpdaterData)
 
 	// Se asume por defecto que un servicio esta actualizandose
@@ -231,7 +231,7 @@ func (su *ServiceUpdater) checkClusterServices(clusterID string, clusterServices
 			su.services[v.ID] = newService
 			updatedServices[v.ID] = newService
 
-			util.Log.WithField("cluster", clusterID).Debugf("Monitoreando nuevo servicio %+v", newService)
+			logger.Instance().WithField("cluster", clusterID).Debugf("Monitoreando nuevo servicio %+v", newService)
 			continue
 		}
 
@@ -240,17 +240,17 @@ func (su *ServiceUpdater) checkClusterServices(clusterID string, clusterServices
 
 		if reflect.DeepEqual(su.services[v.ID].origin, clusterServices[k]) {
 			delete(updatedServices, v.ID)
-			util.Log.WithField("cluster", clusterID).Debugf("Servicio sin cambios %+v", clusterServices[k])
+			logger.Instance().WithField("cluster", clusterID).Debugf("Servicio sin cambios %+v", clusterServices[k])
 			continue
 		}
 
 		su.services[v.ID].origin = clusterServices[k]
-		util.Log.WithField("cluster", clusterID).Debugf("Servicio tuvo un cambio %+v <-> %+v", su.services[v.ID].Origin(), clusterServices[k])
+		logger.Instance().WithField("cluster", clusterID).Debugf("Servicio tuvo un cambio %+v <-> %+v", su.services[v.ID].Origin(), clusterServices[k])
 	}
 
 	for k := range su.services {
 		if su.services[k].lastAction == ServiceUpdating {
-			util.Log.WithField("cluster", clusterID).Debugf("Servicio removido %+v", su.services[k])
+			logger.Instance().WithField("cluster", clusterID).Debugf("Servicio removido %+v", su.services[k])
 			su.services[k].lastAction = ServiceRemoved
 			su.services[k].lastUpdate = time.Now()
 		}

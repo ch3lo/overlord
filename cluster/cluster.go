@@ -6,14 +6,14 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/ch3lo/overlord/configuration"
-	"github.com/ch3lo/overlord/scheduler"
-	"github.com/ch3lo/overlord/scheduler/factory"
-	"github.com/ch3lo/overlord/util"
+	"github.com/ch3lo/overlord/logger"
+	"github.com/latam-airlines/mesos-framework-factory"
+	"github.com/latam-airlines/mesos-framework-factory/factory"
 )
 
 type Cluster struct {
 	id        string
-	scheduler scheduler.Scheduler
+	scheduler framework.Framework
 }
 
 // NewCluster crea un nuevo cluster a partir de un id y parametros de configuracion
@@ -33,7 +33,7 @@ func NewCluster(custerId string, config configuration.Cluster) (*Cluster, error)
 		scheduler: clusterScheduler,
 	}
 
-	util.Log.WithFields(log.Fields{
+	logger.Instance().WithFields(log.Fields{
 		"cluster": custerId,
 	}).Infof("Se creo un nuevo scheduler %s", config.Scheduler.Type())
 
@@ -45,6 +45,6 @@ func (c *Cluster) Id() string {
 }
 
 // GetScheduler retorna el scheduler que utiliza el cluster
-func (c *Cluster) GetScheduler() scheduler.Scheduler {
+func (c *Cluster) GetScheduler() framework.Framework {
 	return c.scheduler
 }

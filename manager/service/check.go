@@ -1,8 +1,6 @@
 package service
 
-import (
-	"github.com/ch3lo/overlord/util"
-)
+import "github.com/ch3lo/overlord/logger"
 
 type Checker interface {
 	id() string
@@ -12,10 +10,10 @@ type Checker interface {
 }
 
 func checkHandler(c Checker, manager *Manager) bool {
-	util.Log.Infoln("Handling Check", c.id())
+	logger.Instance().Infoln("Handling Check", c.id())
 	if c.check(manager) {
 		if c.next() != nil {
-			util.Log.Infoln("Checking", c.next().id())
+			logger.Instance().Infoln("Checking", c.next().id())
 			return c.next().check(manager)
 		}
 		return true
@@ -51,7 +49,7 @@ func (c *MultiTagsChecker) check(manager *Manager) bool {
 		}
 	}
 
-	util.Log.WithField("manager_id", manager.ID()).Debugf("Version %s Has multitags %t", manager.Version, len(tags) > 1)
+	logger.Instance().WithField("manager_id", manager.ID()).Debugf("Version %s Has multitags %t", manager.Version, len(tags) > 1)
 
 	return len(tags) > 1
 }
@@ -87,7 +85,7 @@ func (s *MinInstancesCheck) check(manager *Manager) bool {
 
 	for clusterId, minInstances := range s.MinInstancesPerCluster {
 		if instancesPerCluster[clusterId] < minInstances {
-			util.Log.WithField("manager_id", manager.ID()).Errorf("No hay un minimo de instancias para el cluster %s servicio %v", clusterId, manager)
+			logger.Instance().WithField("manager_id", manager.ID()).Errorf("No hay un minimo de instancias para el cluster %s servicio %v", clusterId, manager)
 			return false
 		}
 	}
@@ -129,7 +127,7 @@ func (s *AtLeastXHostCheck) check(manager *Manager) bool {
 
 	for k, v := range hostsPerCluster {
 		if len(v) < s.MinHosts {
-			util.Log.WithField("manager_id", manager.ID()).Errorf("No hay un minimo de servidores en el cluster %s ejecutando el servicio %v", k, manager)
+			logger.Instance().WithField("manager_id", manager.ID()).Errorf("No hay un minimo de servidores en el cluster %s ejecutando el servicio %v", k, manager)
 			return false
 		}
 	}

@@ -1,12 +1,13 @@
 package api
 
 import (
+	"github.com/ch3lo/overlord/configuration"
 	"github.com/codegangsta/negroni"
 	"github.com/rs/cors"
 	"github.com/thoas/stats"
 )
 
-func Server() {
+func Server(config *configuration.Configuration) {
 	corsMiddleware := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"POST, GET, OPTIONS, PUT, DELETE, UPDATE"},
@@ -18,7 +19,7 @@ func Server() {
 
 	statsMiddleware := stats.New()
 
-	router := routes(statsMiddleware)
+	router := routes(config, statsMiddleware)
 
 	n := negroni.Classic()
 	n.Use(corsMiddleware)

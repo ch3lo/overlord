@@ -3,8 +3,8 @@ package factory
 import (
 	"fmt"
 
+	"github.com/ch3lo/overlord/logger"
 	"github.com/ch3lo/overlord/notification"
-	"github.com/ch3lo/overlord/util"
 )
 
 // notificationFactories almacena una mapeo entre un typo de notificador y su constructor
@@ -19,11 +19,11 @@ type NotificationFactory interface {
 // Register permite a una implementación de Notification estar disponible mediante un id que representa el tipo de notificador
 func Register(name string, factory NotificationFactory) {
 	if factory == nil {
-		util.Log.Fatal("Se debe pasar como argumento un NotificationFactory")
+		logger.Instance().Fatal("Se debe pasar como argumento un NotificationFactory")
 	}
 	_, registered := notificationFactories[name]
 	if registered {
-		util.Log.Fatalf("NotificationFactory %s ya está registrado", name)
+		logger.Instance().Fatalf("NotificationFactory %s ya está registrado", name)
 	}
 
 	notificationFactories[name] = factory

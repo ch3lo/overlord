@@ -52,11 +52,11 @@ type HealthyCriteria struct {
 // con aquellos servicios que cumplen con el criterio
 func (c *HealthyCriteria) MeetCriteria(elements map[string]*ServiceUpdaterData) map[string]*ServiceUpdaterData {
 	filtered := make(map[string]*ServiceUpdaterData)
-	for k, v := range elements {
+	/*	for k, v := range elements {
 		if v.Origin().Healthy() == c.Status {
 			filtered[k] = elements[k]
 		}
-	}
+	}*/
 	return filtered
 }
 

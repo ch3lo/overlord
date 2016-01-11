@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/ch3lo/overlord/logger"
 	"github.com/ch3lo/overlord/notification"
 	"github.com/ch3lo/overlord/notification/factory"
-	"github.com/ch3lo/overlord/util"
 )
 
 const notificationID = "http"
@@ -81,8 +81,8 @@ func (n *Notification) ID() string {
 
 // Notify notifica via http al endpoint configurado
 func (n *Notification) Notify(data []byte) error {
-	util.Log.Infoln("Notificando via http")
-	util.Log.Debugf("Data: %s", string(data))
+	logger.Instance().Infoln("Notificando via http")
+	logger.Instance().Debugf("Data: %s", string(data))
 
 	//var query = []byte(`your query`)
 	req, err := http.NewRequest("POST", n.url, bytes.NewBuffer(data))
@@ -95,9 +95,9 @@ func (n *Notification) Notify(data []byte) error {
 	}
 	defer resp.Body.Close()
 
-	util.Log.Debugf("Response Status: %s - Header: %s", resp.Status, resp.Header)
+	logger.Instance().Debugf("Response Status: %s - Header: %s", resp.Status, resp.Header)
 	body, _ := ioutil.ReadAll(resp.Body)
-	util.Log.Debugf("Response Body: %s", string(body))
+	logger.Instance().Debugf("Response Body: %s", string(body))
 	if resp.StatusCode == http.StatusOK {
 		return nil
 	}

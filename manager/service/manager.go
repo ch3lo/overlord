@@ -8,9 +8,9 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/ch3lo/overlord/configuration"
+	"github.com/ch3lo/overlord/logger"
 	"github.com/ch3lo/overlord/manager/report"
 	"github.com/ch3lo/overlord/monitor"
-	"github.com/ch3lo/overlord/util"
 )
 
 type serviceStatus struct {
@@ -127,16 +127,18 @@ func (s *Manager) Update(data map[string]*monitor.ServiceUpdaterData) {
 				instance = &Instance{
 					ID:           v.Origin().ID,
 					CreationDate: time.Now(),
-					Healthy:      v.Origin().Healthy(),
-					ClusterID:    v.ClusterID(),
-					ImageName:    v.Origin().ImageName,
-					ImageTag:     v.Origin().ImageTag,
+					// TODO FIX
+					//Healthy:      v.Origin().Healthy(),
+					ClusterID: v.ClusterID(),
+					ImageName: v.Origin().ImageName,
+					ImageTag:  v.Origin().ImageTag,
 				}
 			} else {
-				instance.Healthy = v.Origin().Healthy()
+				// TODO FIX
+				//instance.Healthy = v.Origin().Healthy()
 			}
 			s.instances[k] = instance
-			util.Log.WithFields(log.Fields{
+			logger.Instance().WithFields(log.Fields{
 				"manager_id": s.ID(),
 			}).Debugf("Servicio %s con data: %+v", v.LastAction(), instance)
 		}
@@ -150,16 +152,16 @@ func (s *Manager) GetInstances() map[string]*Instance {
 
 // StartCheck comienza el chequeo de los servicios
 func (s *Manager) StartCheck() {
-	util.Log.WithField("manager_id", s.ID()).Infoln("Comenzando check")
+	logger.Instance().WithField("manager_id", s.ID()).Infoln("Comenzando check")
 	go s.checkInstances()
 }
 
 // StopCheck detiene el chequeo de los servicios
 func (s *Manager) StopCheck() {
-	util.Log.WithField("manager_id", s.ID()).Infoln("Deteniendo check")
+	logger.Instance().WithField("manager_id", s.ID()).Infoln("Deteniendo check")
 	s.quitCheck <- true
 	<-s.quitCheck
-	util.Log.WithField("manager_id", s.ID()).Infoln("Check detenido")
+	logger.Instance().WithField("manager_id", s.ID()).Infoln("Check detenido")
 }
 
 func (s *Manager) check() {
@@ -171,7 +173,7 @@ func (s *Manager) check() {
 		s.status.failed++
 	}
 
-	util.Log.WithField("manager_id", s.ID()).Debugf("Status del chequeo %+v - threshold %d", s.status, s.threshold)
+	logger.Instance().WithField("manager_id", s.ID()).Debugf("Status del chequeo %+v - threshold %d", s.status, s.threshold)
 
 	if s.threshold == s.status.consecutiveFails {
 		var query = []byte(fmt.Sprintf("Status del chequeo %+v - threshold %d", s.status, s.threshold))
@@ -183,7 +185,7 @@ func (s *Manager) checkInstances() {
 	for {
 		select {
 		case <-s.quitCheck:
-			util.Log.WithField("manager_id", s.ID()).Infoln("Finalizando check")
+			logger.Instance().WithField("manager_id", s.ID()).Infoln("Finalizando check")
 			s.quitCheck <- true
 			return
 		case <-time.After(s.interval):

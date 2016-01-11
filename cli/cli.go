@@ -1,22 +1,19 @@
 package cli
 
 import (
-	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v2"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/ch3lo/overlord/configuration"
-	"github.com/ch3lo/overlord/engine"
-	"github.com/ch3lo/overlord/util"
+	"github.com/ch3lo/overlord/logger"
 	"github.com/ch3lo/overlord/version"
 	"github.com/codegangsta/cli"
 )
 
-var logFile *os.File = nil
+var config *configuration.Configuration
 
 func globalFlags() []cli.Flag {
 	flags := []cli.Flag{
@@ -57,54 +54,6 @@ func globalFlags() []cli.Flag {
 	return flags
 }
 
-type logConfig struct {
-	level     string
-	Formatter string
-	colored   bool
-	output    string
-	debug     bool
-}
-
-func setupLogger(config logConfig) error {
-	var err error
-
-	if util.Log.Level, err = log.ParseLevel(config.level); err != nil {
-		return err
-	}
-
-	if config.debug {
-		util.Log.Level = log.DebugLevel
-	}
-
-	switch config.Formatter {
-	case "text":
-		formatter := new(log.TextFormatter)
-		formatter.ForceColors = config.colored
-		formatter.FullTimestamp = true
-		util.Log.Formatter = formatter
-		break
-	case "json":
-		formatter := new(log.JSONFormatter)
-		util.Log.Formatter = formatter
-		break
-	default:
-		return errors.New("Formato de lo log desconocido")
-	}
-
-	switch config.output {
-	case "console":
-		util.Log.Out = os.Stdout
-		break
-	case "file":
-		util.Log.Out = logFile
-		break
-	default:
-		return errors.New("Output de logs desconocido")
-	}
-
-	return nil
-}
-
 func setupConfiguration(configFile string) (*configuration.Configuration, error) {
 	_, err := os.Stat(configFile)
 	if os.IsNotExist(err) {
@@ -130,24 +79,23 @@ func setupConfiguration(configFile string) (*configuration.Configuration, error)
 }
 
 func setupApplication(c *cli.Context) error {
-	logConfig := logConfig{}
-	logConfig.level = c.String("log-level")
-	logConfig.Formatter = c.String("log-formatter")
-	logConfig.colored = c.Bool("log-colored")
-	logConfig.output = c.String("log-output")
-	logConfig.debug = c.Bool("debug")
+	logConfig := logger.Config{
+		Level:     c.String("log-level"),
+		Formatter: c.String("log-formatter"),
+		Colored:   c.Bool("log-colored"),
+		Output:    c.String("log-output"),
+		Debug:     c.Bool("debug"),
+	}
 
-	err := setupLogger(logConfig)
+	err := logger.Configure(logConfig)
 	if err != nil {
 		return err
 	}
 
-	var appConfig *configuration.Configuration
-	if appConfig, err = setupConfiguration(c.String("config")); err != nil {
+	if config, err = setupConfiguration(c.String("config")); err != nil {
 		return err
 	}
 
-	engine.NewApp(appConfig)
 	return nil
 }
 
@@ -165,16 +113,7 @@ func RunApp() {
 
 	app.Commands = commands
 
-	var err error
-	logFile, err = os.OpenFile("overlord.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		util.Log.Warnln("Error al abrir el archivo")
-	} else {
-		defer logFile.Close()
-	}
-
-	err = app.Run(os.Args)
-	if err != nil {
-		util.Log.Fatalln(err)
+	if err := app.Run(os.Args); err != nil {
+		logger.Instance().Fatalln(err)
 	}
 }

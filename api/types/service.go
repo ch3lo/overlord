@@ -16,7 +16,7 @@ type ClusterCheck struct {
 	Instaces int `json:"instances,omitempty"`
 }
 
-type ServiceManager struct {
+type AppVersion struct {
 	Version      string                  `json:"version,omitempty"`
 	CreationDate *time.Time              `json:"creation_time,omitempty"`
 	ImageName    string                  `json:"image_name,omitempty"`
@@ -25,8 +25,8 @@ type ServiceManager struct {
 	ClusterCheck map[string]ClusterCheck `json:"cluster_check,omitempty"`
 }
 
-type ServiceGroup struct {
-	Id           string           `json:"id"`
-	CreationDate *time.Time       `json:"creation_time,omitempty"`
-	Managers     []ServiceManager `json:"managers,omitempty"`
+type Application struct {
+	Id           string       `json:"id"`
+	CreationDate *time.Time   `json:"creation_time,omitempty"`
+	Managers     []AppVersion `json:"managers,omitempty"`
 }

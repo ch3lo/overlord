@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/smtp"
 
+	"github.com/ch3lo/overlord/logger"
 	"github.com/ch3lo/overlord/notification"
 	"github.com/ch3lo/overlord/notification/factory"
-	"github.com/ch3lo/overlord/util"
 )
 
 const notificationID = "email"
@@ -98,8 +98,8 @@ func (n *Notification) ID() string {
 
 // Notify notifica via email al destinatario
 func (n *Notification) Notify(data []byte) error {
-	util.Log.Infoln("Notificando via email")
-	util.Log.Debugf("Data: %s", string(data))
+	logger.Instance().Infoln("Notificando via email")
+	logger.Instance().Debugf("Data: %s", string(data))
 
 	// Connect to the remote SMTP server.
 	c, err := smtp.Dial(n.address)

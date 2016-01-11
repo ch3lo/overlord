@@ -1,4 +1,4 @@
-package engine
+package api
 
 import (
 	"fmt"
@@ -6,110 +6,103 @@ import (
 
 	"github.com/ch3lo/overlord/cluster"
 	"github.com/ch3lo/overlord/configuration"
+	"github.com/ch3lo/overlord/logger"
 	"github.com/ch3lo/overlord/manager/report"
 	"github.com/ch3lo/overlord/manager/service"
 	"github.com/ch3lo/overlord/monitor"
 	"github.com/ch3lo/overlord/notification"
 	"github.com/ch3lo/overlord/notification/factory"
-	"github.com/ch3lo/overlord/util"
 	//Necesarios para que funcione el init()
 	_ "github.com/ch3lo/overlord/notification/email"
 	_ "github.com/ch3lo/overlord/notification/http"
-	_ "github.com/ch3lo/overlord/scheduler/marathon"
-	_ "github.com/ch3lo/overlord/scheduler/swarm"
+	_ "github.com/latam-airlines/mesos-framework-factory/marathon"
+	_ "github.com/latam-airlines/mesos-framework-factory/swarm"
 )
 
-var overlordApp *overlord
-
-type overlord struct {
+type appContext struct {
 	serviceMux         sync.Mutex
 	config             *configuration.Configuration
 	serviceUpdater     *monitor.ServiceUpdater
 	broadcaster        report.Broadcast
 	clusters           map[string]*cluster.Cluster
-	serviceGroupMapper map[string]*service.Group
+	serviceGroupMapper map[string]*service.Application
 }
 
-func NewApp(config *configuration.Configuration) {
-	app := &overlord{
+func newContext(config *configuration.Configuration) *appContext {
+	app := &appContext{
 		config:             config,
 		clusters:           make(map[string]*cluster.Cluster),
-		serviceGroupMapper: make(map[string]*service.Group),
+		serviceGroupMapper: make(map[string]*service.Application),
 	}
 
 	app.setupBroadcaster(config.Notification)
 	app.setupClusters(config.Clusters)
 	app.setupServiceUpdater(config.Updater)
 
-	overlordApp = app
-}
-
-func GetAppInstance() *overlord {
-	return overlordApp
+	return app
 }
 
 // setupBroadcaster inicializa el broadcaster de Notificaciones
-func (o *overlord) setupBroadcaster(config configuration.Notification) {
+func (o *appContext) setupBroadcaster(config configuration.Notification) {
 	broadcaster := report.NewBroadcaster(config.AttemptsOnError, config.WaitOnError, config.WaitAfterAttemts)
 	var notifications []notification.Notification
 	for key, params := range config.Providers {
 		if params.Disabled {
-			util.Log.Warnf("El notificador no esta habilitado: %s", key)
+			logger.Instance().Warnf("El notificador no esta habilitado: %s", key)
 			continue
 		}
 
 		notification, err := factory.Create(params.NotificationType, key, params.Config)
 		if err != nil {
-			util.Log.Fatalf("Error al crear la notificacion %s. %s", key, err.Error())
+			logger.Instance().Fatalf("Error al crear la notificacion %s. %s", key, err.Error())
 		}
 
-		util.Log.Infof("Se creo nuevo notificador %s de tipo %s", key, params.NotificationType)
+		logger.Instance().Infof("Se creo nuevo notificador %s de tipo %s", key, params.NotificationType)
 		notifications = append(notifications, notification)
-		util.Log.Infof("Registrando el notificador %s en broadcaster", key)
+		logger.Instance().Infof("Registrando el notificador %s en broadcaster", key)
 		if err := broadcaster.Register(notification); err != nil {
-			util.Log.Fatalf("No se pudo registrar el notificador en el broadcaster: %s", err.Error())
+			logger.Instance().Fatalf("No se pudo registrar el notificador en el broadcaster: %s", err.Error())
 		}
 	}
 
 	if len(notifications) == 0 {
-		util.Log.Warnln("No hay notificadores configurados")
+		logger.Instance().Warnln("No hay notificadores configurados")
 	}
 
 	o.broadcaster = broadcaster
-
 }
 
 // setupClusters inicia el cluster, mapeando el cluster el id del cluster como key
-func (o *overlord) setupClusters(config map[string]configuration.Cluster) {
+func (o *appContext) setupClusters(config map[string]configuration.Cluster) {
 	for key := range config {
 		c, err := cluster.NewCluster(key, config[key])
 		if err != nil {
 			switch err.(type) {
 			case *cluster.ClusterDisabled:
-				util.Log.Warnln(err.Error())
+				logger.Instance().Warnln(err.Error())
 				continue
 			default:
-				util.Log.Fatalln(err.Error())
+				logger.Instance().Fatalln(err.Error())
 			}
 		}
 
 		o.clusters[key] = c
-		util.Log.Infof("Se configuro el cluster %s", key)
+		logger.Instance().Infof("Se configuro el cluster %s", key)
 	}
 
 	if len(o.clusters) == 0 {
-		util.Log.Fatalln("Al menos debe existir un cluster")
+		logger.Instance().Fatalln("Al menos debe existir un cluster")
 	}
 }
 
 // setupServiceUpdater inicia el componente que monitorea cambios de servicios
-func (o *overlord) setupServiceUpdater(config configuration.Updater) {
+func (o *appContext) setupServiceUpdater(config configuration.Updater) {
 	su := monitor.NewServiceUpdater(config, o.clusters)
 	su.Monitor()
 	o.serviceUpdater = su
 }
 
-func (o *overlord) clusterIds() []string {
+func (o *appContext) clusterIds() []string {
 	var names []string
 	for k := range o.clusters {
 		names = append(names, k)
@@ -121,11 +114,11 @@ func (o *overlord) clusterIds() []string {
 // Si el contenedor ya existia se omite su creación y se procede a registrar
 // las versiones de los servicios.
 // Si no se puede registrar una nueva version se retornara un error.
-func (o *overlord) RegisterService(params service.Parameters) (*service.Manager, error) {
+func (o *appContext) RegisterService(params service.Parameters) (*service.Manager, error) {
 	o.serviceMux.Lock()
 	defer o.serviceMux.Unlock()
 
-	group := o.RegisterGroup(params)
+	group := o.RegisterApplication(params)
 
 	sm, err := group.RegisterServiceManager(o.clusterIds(), o.config.Manager.Check, o.broadcaster, params)
 	if err != nil {
@@ -138,8 +131,8 @@ func (o *overlord) RegisterService(params service.Parameters) (*service.Manager,
 	return sm, nil
 }
 
-func (o *overlord) RegisterGroup(params service.Parameters) *service.Group {
-	var group *service.Group
+func (o *appContext) RegisterApplication(params service.Parameters) *service.Application {
+	var group *service.Application
 	var ok bool
 	if group, ok = o.serviceGroupMapper[params.ID]; ok {
 		group = o.serviceGroupMapper[params.ID]
@@ -150,7 +143,7 @@ func (o *overlord) RegisterGroup(params service.Parameters) *service.Group {
 	return group
 }
 
-func (o *overlord) GetServices() map[string]*service.Group {
+func (o *appContext) GetApplications() map[string]*service.Application {
 	return o.serviceGroupMapper
 }
 

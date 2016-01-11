@@ -3,8 +3,8 @@ package report
 import (
 	"time"
 
+	"github.com/ch3lo/overlord/logger"
 	"github.com/ch3lo/overlord/notification"
-	"github.com/ch3lo/overlord/util"
 	"gopkg.in/matryer/try.v1"
 )
 
@@ -93,7 +93,7 @@ func (w BroadcastWorker) Notify(data []byte) error {
 		for {
 			select {
 			case <-w.quitChan:
-				util.Log.Infoln("Notificacion detenida")
+				logger.Instance().Infoln("Notificacion detenida")
 				return
 
 			default:
@@ -114,7 +114,7 @@ func (w BroadcastWorker) Notify(data []byte) error {
 					return
 				}
 				w.status.fail++
-				util.Log.Warnf("No se pudo notificar, se esperara un tiempo: %s", err.Error())
+				logger.Instance().Warnf("No se pudo notificar, se esperara un tiempo: %s", err.Error())
 				time.Sleep(w.waitAfterAttemts)
 			}
 		}

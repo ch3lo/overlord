@@ -5,22 +5,22 @@ import (
 	"net/http"
 
 	"github.com/ch3lo/overlord/api/types"
-	"github.com/ch3lo/overlord/engine"
+	"github.com/ch3lo/overlord/logger"
 	"github.com/ch3lo/overlord/manager/service"
-	"github.com/ch3lo/overlord/util"
 	"github.com/thoas/stats"
 	"github.com/unrolled/render"
 )
 
-type serviceHandler func(w http.ResponseWriter, r *http.Request) error
+type serviceHandler func(c *appContext, w http.ResponseWriter, r *http.Request) error
 
 type errorHandler struct {
-	f serviceHandler
+	handler serviceHandler
+	appCtx  *appContext
 }
 
-func (eh *errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := eh.f(w, r); err != nil {
-		util.Log.Errorln(err)
+func (eh errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := eh.handler(eh.appCtx, w, r); err != nil {
+		logger.Instance().Errorln(err)
 		if err2, ok := err.(apiError); ok {
 			jsonRenderer(w, err2)
 			return
@@ -30,17 +30,11 @@ func (eh *errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type statsHandler struct {
-	s *stats.Stats
+	*stats.Stats
 }
 
 func (sh *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	stats := sh.s.Data()
-	jsonRenderer(w, stats)
-}
-
-type Response struct {
-	Status int         `json:"status"`
-	Data   interface{} `json:"data"`
+	jsonRenderer(w, sh.Data())
 }
 
 func jsonRenderer(w http.ResponseWriter, i interface{}) {
@@ -48,11 +42,16 @@ func jsonRenderer(w http.ResponseWriter, i interface{}) {
 	rend.JSON(w, http.StatusOK, i)
 }
 
-func getServices(w http.ResponseWriter, r *http.Request) error {
-	servicesList := engine.GetAppInstance().GetServices()
-	var apiServices []types.ServiceGroup
+type Response struct {
+	Status int         `json:"status"`
+	Data   interface{} `json:"data"`
+}
+
+func getServices(c *appContext, w http.ResponseWriter, r *http.Request) error {
+	servicesList := c.GetApplications()
+	var apiServices []types.Application
 	for _, srv := range servicesList {
-		var apiVersions []types.ServiceManager
+		var apiVersions []types.AppVersion
 		for _, v := range srv.Managers {
 			var instances []types.Instance
 			for _, instance := range v.GetInstances() {
@@ -63,7 +62,7 @@ func getServices(w http.ResponseWriter, r *http.Request) error {
 				})
 			}
 
-			apiVersions = append(apiVersions, types.ServiceManager{
+			apiVersions = append(apiVersions, types.AppVersion{
 				Version:      v.Version,
 				CreationDate: &srv.CreationDate,
 				ImageName:    v.ImageName,
@@ -71,7 +70,7 @@ func getServices(w http.ResponseWriter, r *http.Request) error {
 				Instances:    instances,
 			})
 		}
-		apiServices = append(apiServices, types.ServiceGroup{
+		apiServices = append(apiServices, types.Application{
 			Id:           srv.ID,
 			CreationDate: &srv.CreationDate,
 			Managers:     apiVersions,
@@ -83,8 +82,8 @@ func getServices(w http.ResponseWriter, r *http.Request) error {
 
 }
 
-func putService(w http.ResponseWriter, r *http.Request) error {
-	var bindedService types.ServiceGroup
+func putService(c *appContext, w http.ResponseWriter, r *http.Request) error {
+	var bindedService types.Application
 	if err := json.NewDecoder(r.Body).Decode(&bindedService); err != nil {
 		return NewSerializationError(err.Error())
 	}
@@ -104,7 +103,7 @@ func putService(w http.ResponseWriter, r *http.Request) error {
 			MinInstancesPerCluster: clusterCheck,
 		}
 
-		if _, err := engine.GetAppInstance().RegisterService(params); err != nil {
+		if _, err := c.RegisterService(params); err != nil {
 			switch err.(type) {
 			case *service.AlreadyExist:
 				return NewElementAlreadyExists()
@@ -122,7 +121,7 @@ func putService(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func getServiceByServiceId(w http.ResponseWriter, r *http.Request) error {
+func getServiceByServiceId(c *appContext, w http.ResponseWriter, r *http.Request) error {
 	/*	serviceId := c.Param("service_id")
 
 		bag := manager.ServicesBag()
@@ -137,7 +136,7 @@ func getServiceByServiceId(w http.ResponseWriter, r *http.Request) error {
 	return NewServiceNotFound()
 }
 
-func getServiceByClusterAndServiceId(w http.ResponseWriter, r *http.Request) error {
+func getServiceByClusterAndServiceId(c *appContext, w http.ResponseWriter, r *http.Request) error {
 	/*cluster := c.Param("cluster")
 	serviceId := c.Param("service_id")
 
@@ -155,9 +154,9 @@ func getServiceByClusterAndServiceId(w http.ResponseWriter, r *http.Request) err
 	return nil
 }
 
-func putServiceVersionByServiceId(w http.ResponseWriter, r *http.Request) error {
+func putServiceVersionByServiceId(c *appContext, w http.ResponseWriter, r *http.Request) error {
 	//	serviceId := c.Param("service_id")
-	var sv types.ServiceManager
+	var sv types.AppVersion
 
 	if err := json.NewDecoder(r.Body).Decode(&sv); err != nil {
 		return NewSerializationError(err.Error())
@@ -166,7 +165,7 @@ func putServiceVersionByServiceId(w http.ResponseWriter, r *http.Request) error 
 		managedsv := &manager.ServiceVersion{Version: sv.Version}
 
 		if err := manager.RegisterServiceVersion(serviceId, managedsv); err != nil {
-			util.Log.Println(err)
+			logger.Instance().Println(err)
 			if ce, ok := err.(*util.ElementAlreadyExists); ok {
 				rend.JSON(http.StatusOK, map[string]string{
 					"status":  ce.GetStatus(),

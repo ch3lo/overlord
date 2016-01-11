@@ -14,5 +14,5 @@ func deployBefore(c *cli.Context) error {
 }
 
 func deployCmd(c *cli.Context) {
-	api.Server()
+	api.Server(config)
 }

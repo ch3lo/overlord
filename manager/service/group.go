@@ -8,15 +8,15 @@ import (
 )
 
 // Group agrupa un conjuntos de versiones de un servicios
-type Group struct {
+type Application struct {
 	ID           string
 	CreationDate time.Time
 	Managers     map[string]*Manager
 }
 
 // NewServiceGroup crea un nuevo contenedor de servicios con la fecha actual
-func NewServiceGroup(id string) *Group {
-	container := &Group{
+func NewServiceGroup(id string) *Application {
+	container := &Application{
 		ID:           id,
 		CreationDate: time.Now(),
 		Managers:     make(map[string]*Manager),
@@ -27,7 +27,7 @@ func NewServiceGroup(id string) *Group {
 
 // RegisterServiceManager registra una nuevo manejador de servicios
 // Si el manager ya existia se retornara un error ServiceManagerAlreadyExist
-func (s *Group) RegisterServiceManager(clusterNames []string, checkConfig configuration.Check, broadcaster report.Broadcast, params Parameters) (*Manager, error) {
+func (s *Application) RegisterServiceManager(clusterNames []string, checkConfig configuration.Check, broadcaster report.Broadcast, params Parameters) (*Manager, error) {
 	sm, err := NewServiceManager(clusterNames, checkConfig, broadcaster, params)
 	if err != nil {
 		return nil, err
