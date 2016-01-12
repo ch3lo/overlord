@@ -31,10 +31,6 @@ package manager {
     ServiceManager o- Broadcast
 }
 
-package engine {
-    class Overlord
-}
-
 package configuration {
   class Configuration
 }
@@ -93,14 +89,12 @@ package notification {
 }
 
 package api {
-  class ApiEngine
+  class appContext
 }
 
-package scheduler {
-    interface Scheduler {
+package framework {
+    interface Framework {
         Id() strng
-        IsAlive(string) (bool, error)
-        GetInstances() ([]ServiceInformation, error)
     }
 
     class ServiceInformation {
@@ -108,34 +102,21 @@ package scheduler {
         Image : string
         Status : ServiceInformationStatus
     }
-
-    class Swarm
-    class Marathon
-    class ServiceInformationStatus
-
-    Scheduler <|.. Swarm
-    Scheduler <|.. Marathon
-
-    Swarm --> ServiceInformation
-    Marathon --> ServiceInformation
-    ServiceInformation -> ServiceInformationStatus
 }
-
-ApiEngine -> Overlord
 
 ServiceManager .|> ServiceUpdaterSubscriber
 
 
-ServiceGroup -* Overlord
+ServiceManager -* appContext
 
-Overlord *- ServiceUpdater
-Overlord *- Cluster
-Overlord o- Configuration
-Overlord *- Broadcast
+appContext *- ServiceUpdater
+appContext *- Cluster
+appContext o- Configuration
+appContext *- Broadcast
 
 BroadcastWorker -> Notification : decora
 
-Cluster o- Scheduler
+Cluster o- Framework
 ServiceUpdater o-- Cluster
 ServiceUpdaterData o-- ServiceInformation
 @enduml

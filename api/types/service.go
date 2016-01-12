@@ -1,8 +1,6 @@
 package types
 
-import (
-	"time"
-)
+import "time"
 
 type Instance struct {
 	Id           string     `json:"id"`
@@ -12,21 +10,32 @@ type Instance struct {
 	Address      string     `json:"address"`
 }
 
-type ClusterCheck struct {
-	Instaces int `json:"instances,omitempty"`
-}
-
-type AppVersion struct {
+type AppMajorVersion struct {
 	Version      string                  `json:"version,omitempty"`
 	CreationDate *time.Time              `json:"creation_time,omitempty"`
 	ImageName    string                  `json:"image_name,omitempty"`
 	ImageTag     string                  `json:"image_tag,omitempty"`
 	Instances    []Instance              `json:"instances,omitempty"`
-	ClusterCheck map[string]ClusterCheck `json:"cluster_check,omitempty"`
+	ClusterCheck map[string]ClusterCheck `json:"cluster_check"`
 }
 
 type Application struct {
-	Id           string       `json:"id"`
-	CreationDate *time.Time   `json:"creation_time,omitempty"`
-	Managers     []AppVersion `json:"managers,omitempty"`
+	Id           string            `json:"id"`
+	CreationDate *time.Time        `json:"creation_time,omitempty"`
+	Versions     []AppMajorVersion `json:"versions,omitempty"`
+}
+
+type ClusterCheck struct {
+	Instances int `json:"instances,omitempty"`
+}
+
+type ConstraintMapper struct {
+	ImageName    string                  `json:"image_name,omitempty", valid:"alphanum"`
+	ClusterCheck map[string]ClusterCheck `json:"cluster_check"`
+}
+
+type AppRequest struct {
+	AppID        string           `json:"app_id", valid:"alphanum,required"`
+	MajorVersion string           `json:"app_major_version", valid:"alphanum,required"`
+	Constraints  ConstraintMapper `json:"constraints"`
 }

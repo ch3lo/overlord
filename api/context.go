@@ -12,27 +12,22 @@ import (
 	"github.com/ch3lo/overlord/monitor"
 	"github.com/ch3lo/overlord/notification"
 	"github.com/ch3lo/overlord/notification/factory"
-	//Necesarios para que funcione el init()
-	_ "github.com/ch3lo/overlord/notification/email"
-	_ "github.com/ch3lo/overlord/notification/http"
-	_ "github.com/latam-airlines/mesos-framework-factory/marathon"
-	_ "github.com/latam-airlines/mesos-framework-factory/swarm"
 )
 
 type appContext struct {
-	serviceMux         sync.Mutex
-	config             *configuration.Configuration
-	serviceUpdater     *monitor.ServiceUpdater
-	broadcaster        report.Broadcast
-	clusters           map[string]*cluster.Cluster
-	serviceGroupMapper map[string]*service.Application
+	serviceMux     sync.Mutex
+	config         *configuration.Configuration
+	serviceUpdater *monitor.ServiceUpdater
+	broadcaster    report.Broadcast
+	clusters       map[string]*cluster.Cluster
+	appManagers    map[string]*service.Manager
 }
 
 func newContext(config *configuration.Configuration) *appContext {
 	app := &appContext{
-		config:             config,
-		clusters:           make(map[string]*cluster.Cluster),
-		serviceGroupMapper: make(map[string]*service.Application),
+		config:      config,
+		clusters:    make(map[string]*cluster.Cluster),
+		appManagers: make(map[string]*service.Manager),
 	}
 
 	app.setupBroadcaster(config.Notification)
@@ -110,41 +105,55 @@ func (o *appContext) clusterIds() []string {
 	return names
 }
 
-// RegisterService registra un nuevo servicio en un contenedor de servicios
+// RegisterServiceManager registra un nuevo manejador de servicios
 // Si el contenedor ya existia se omite su creación y se procede a registrar
 // las versiones de los servicios.
 // Si no se puede registrar una nueva version se retornara un error.
-func (o *appContext) RegisterService(params service.Parameters) (*service.Manager, error) {
+func (o *appContext) RegisterServiceManager(params service.Parameters) (*service.Manager, error) {
 	o.serviceMux.Lock()
 	defer o.serviceMux.Unlock()
 
-	group := o.RegisterApplication(params)
-
-	sm, err := group.RegisterServiceManager(o.clusterIds(), o.config.Manager.Check, o.broadcaster, params)
+	criteria, err := params.BuildCriteria()
 	if err != nil {
 		return nil, err
 	}
 
-	imageNameRegexp, _ := sm.FullImageNameRegexp()
-	criteria := &monitor.ImageNameAndImageTagRegexpCriteria{imageNameRegexp}
+	sm, err := service.NewServiceManager(o.clusterIds(), o.config.Manager.Check, o.broadcaster, params)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := o.appManagers[sm.ID()]; ok {
+		return nil, &service.ManagerAlreadyExist{Service: sm.ID(), Version: params.Version}
+	}
+
 	o.serviceUpdater.Register(sm, criteria)
+	sm.StartCheck()
+
+	o.appManagers[sm.ID()] = sm
 	return sm, nil
 }
 
-func (o *appContext) RegisterApplication(params service.Parameters) *service.Application {
-	var group *service.Application
+/*
+func (o *appContext) registerApplication(params service.Parameters) *service.Application {
+	var app *service.Application
 	var ok bool
-	if group, ok = o.serviceGroupMapper[params.ID]; ok {
-		group = o.serviceGroupMapper[params.ID]
+	if app, ok = o.appMapper[params.ID]; ok {
+		app = o.appMapper[params.ID]
 	} else {
-		group = service.NewServiceGroup(params.ID)
-		o.serviceGroupMapper[params.ID] = group
+		app = service.NewApplication(params.ID)
+		o.appMapper[params.ID] = app
 	}
-	return group
-}
+	return app
+}*/
 
-func (o *appContext) GetApplications() map[string]*service.Application {
-	return o.serviceGroupMapper
+func (o *appContext) GetApplications() map[string]*service.AppMajor {
+	apps := make(map[string]*service.AppMajor)
+
+	for _, v := range o.appManagers {
+		apps[v.App.ID] = v.App
+	}
+	return apps
 }
 
 // NotificationDisabled error generado cuando un notificador no esta habilitado

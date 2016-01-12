@@ -43,7 +43,7 @@ func (c *MultiTagsChecker) Ok(manager *Manager) bool {
 
 func (c *MultiTagsChecker) check(manager *Manager) bool {
 	tags := make(map[string]bool)
-	for _, v := range manager.instances {
+	for _, v := range manager.App.Instances {
 		if v.Healthy {
 			tags[v.ImageTag] = true
 		}
@@ -77,7 +77,7 @@ func (c *MinInstancesCheck) Ok(manager *Manager) bool {
 
 func (s *MinInstancesCheck) check(manager *Manager) bool {
 	instancesPerCluster := make(map[string]int)
-	for _, v := range manager.instances {
+	for _, v := range manager.App.Instances {
 		if v.Healthy {
 			instancesPerCluster[v.ClusterID]++
 		}
@@ -116,7 +116,7 @@ func (c *AtLeastXHostCheck) Ok(manager *Manager) bool {
 
 func (s *AtLeastXHostCheck) check(manager *Manager) bool {
 	hostsPerCluster := make(map[string]map[string]int)
-	for _, v := range manager.instances {
+	for _, v := range manager.App.Instances {
 		if v.Healthy {
 			if _, ok := hostsPerCluster[v.ClusterID]; !ok {
 				hostsPerCluster[v.ClusterID] = make(map[string]int)
